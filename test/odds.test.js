@@ -1,0 +1,77 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { americanToProb, buildProps, trimEvents, SPORTS } from '../lib/odds.js';
+import { SAMPLE_ODDS } from './sample.js';
+
+const L = SPORTS.football_nfl.markets;
+
+test('american odds to implied probability', () => {
+  assert.equal(americanToProb(100), 0.5);
+  assert.ok(Math.abs(americanToProb(-110) - 0.5238) < 1e-4);
+  assert.ok(Math.abs(americanToProb(150) - 0.4) < 1e-9);
+  assert.equal(americanToProb('x'), null);
+});
+
+test('de-vigs and averages books at the DFS line, Pinnacle weighted 2x', () => {
+  const rows = buildProps(SAMPLE_ODDS, L);
+  const r = rows.find(x => x.player === 'Jalen Hurts' && x.market === 'player_pass_yds');
+  // DK -115/-105 -> fair .5349 ; FD -120/+100 -> .5455 ; Pinnacle -110/-110 -> .5 (x2)
+  const dk = americanToProb(-115) / (americanToProb(-115) + americanToProb(-105));
+  const fd = americanToProb(-120) / (americanToProb(-120) + americanToProb(100));
+  const want = (dk + fd + 0.5 * 2) / 4;
+  assert.equal(r.line, 224.5);
+  assert.equal(r.over, Math.round(want * 1000) / 1000);
+  assert.equal(r.books, 3);
+  assert.deepEqual(r.apps, ['PrizePicks', 'Underdog']);
+  assert.equal(r.bookLine, null);
+  assert.ok(Math.abs(r.over + r.under - 1) < 0.002);
+});
+
+test('ignores goblin/demon and boosted Underdog lines', () => {
+  const rows = buildProps(SAMPLE_ODDS, L).filter(x => x.player === 'Jalen Hurts' && x.market === 'player_pass_yds');
+  assert.deepEqual(rows.map(r => r.line), [224.5]);
+});
+
+test('DFS line with no exact book line uses nearest and flags it', () => {
+  const r = buildProps(SAMPLE_ODDS, L).find(x => x.player === 'A.J. Brown');
+  assert.equal(r.line, 70.5);
+  assert.equal(r.bookLine, 68.5);
+  assert.ok(r.over > 0 && r.over < 1);
+});
+
+test('yes/no props (anytime TD) work with no line', () => {
+  const r = buildProps(SAMPLE_ODDS, L).find(x => x.market === 'player_anytime_td');
+  assert.equal(r.line, null);
+  // +150/-180 -> .4 / .6429
+  const want = 0.4 / (0.4 + americanToProb(-180));
+  assert.equal(r.over, Math.round(want * 1000) / 1000);
+});
+
+test('book-only prop (no DFS) shows its most-quoted line with no apps', () => {
+  const r = buildProps(SAMPLE_ODDS, L).find(x => x.player === 'Saquon Barkley' && x.market === 'player_rush_yds');
+  assert.equal(r.line, 89.5);
+  assert.deepEqual(r.apps, []);
+});
+
+test('skips period markets, unknown markets, suspended markets', () => {
+  const rows = buildProps(SAMPLE_ODDS, L);
+  assert.ok(!rows.some(r => r.market === 'player_kicking_points'));
+  assert.ok(!rows.some(r => r.player === 'Q1 Guy'));
+  assert.ok(!rows.some(r => r.player === 'Pulled Guy'));
+});
+
+test('handles empty or malformed input', () => {
+  assert.deepEqual(buildProps(null, L), []);
+  assert.deepEqual(buildProps({ bookmakers: [{ key: 'x' }] }, L), []);
+});
+
+test('trimEvents keeps live and next-4-day games, sorted', () => {
+  const now = Date.parse('2026-11-01T12:00:00Z');
+  const ev = [
+    { id: 3, home_team: 'C', away_team: 'D', commence_time: '2026-11-03T00:00:00Z' },
+    { id: 1, home_team: 'A', away_team: 'B', commence_time: '2026-11-01T10:00:00Z' },
+    { id: 9, home_team: 'Old', away_team: 'X', commence_time: '2026-10-30T00:00:00Z' },
+    { id: 8, home_team: 'Far', away_team: 'X', commence_time: '2026-11-20T00:00:00Z' },
+  ];
+  assert.deepEqual(trimEvents(ev, now).map(e => e.id), [1, 3]);
+});

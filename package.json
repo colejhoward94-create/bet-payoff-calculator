@@ -1,0 +1,13 @@
+{
+  "name": "bet-payoff-calculator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bet payoff calculator with live player-prop lines and fair probabilities",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

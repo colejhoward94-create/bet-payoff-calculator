@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en" data-font="barlow" data-palette="sage">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@600;700&family=Oswald:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=Saira:wght@400;600;700&family=Saira+Condensed:wght@600;700&family=Chakra+Petch:wght@400;600;700&family=Teko:wght@500;600;700&display=swap">
+<title>Bet Payoff Calculator</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#56705d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bet Calc">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/favicon.png">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mut:#667085;--line:#e3e6eb;--ac:#2563eb;--good:#15803d;--warn:#b45309;--bad:#b91c1c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1217;--card:#181c23;--tx:#eceff4;--mut:#98a2b3;--line:#2a303a;--ac:#6ea0ff;--good:#4ade80;--warn:#fbbf24;--bad:#f87171}}
+:root[data-theme="dark"]{--bg:#0f1217;--card:#181c23;--tx:#eceff4;--mut:#98a2b3;--line:#2a303a;--ac:#6ea0ff;--good:#4ade80;--warn:#fbbf24;--bad:#f87171}
+:root{--fh:"Barlow Condensed","Arial Narrow",sans-serif;--fb:Barlow,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+:root[data-font="oswald"]{--fh:Oswald,"Arial Narrow",sans-serif;--fb:"Source Sans 3",system-ui,sans-serif}
+:root[data-font="saira"]{--fh:"Saira Condensed","Arial Narrow",sans-serif;--fb:Saira,system-ui,sans-serif}
+:root[data-font="chakra"]{--fh:"Chakra Petch",system-ui,sans-serif;--fb:"Chakra Petch",system-ui,sans-serif}
+:root[data-font="teko"]{--fh:Teko,"Arial Narrow",sans-serif;--fb:Barlow,system-ui,sans-serif}
+:root[data-palette="sage"]{--bg:#56705d;--card:#4a6352;--tx:#f3eedf;--mut:#d2cab0;--line:#6d8873;--ac:#e5cf99;--onac:#26332a;--onb:#1f2a22;--good:#b9e6a3;--warn:#f2d27f;--bad:#f6a994;color-scheme:dark}
+:root[data-palette="forest"]{--bg:#1f2b24;--card:#2a3a31;--tx:#ece5d2;--mut:#b6b098;--line:#3d5044;--ac:#b9d28b;--onac:#1b261f;--onb:#16201a;--good:#8fd694;--warn:#f0cf7a;--bad:#f2917f;color-scheme:dark}
+:root[data-palette="clay"]{--bg:#6a7f67;--card:#5a6e58;--tx:#faf5ea;--mut:#e2d8bf;--line:#7e957a;--ac:#e09a6a;--onac:#231a12;--onb:#1d241d;--good:#c2eaa8;--warn:#f5d684;--bad:#ffb09a;color-scheme:dark}
+:root[data-palette="light"]{--bg:#dde6da;--card:#f6f8f2;--tx:#25352a;--mut:#5f705f;--line:#c4d1c1;--ac:#3f6b4f;--onac:#fff;--onb:#fff;--good:#2f7a45;--warn:#a56a12;--bad:#b3392c;color-scheme:light}
+h1,h2,.stat b,.badge,.def dt{font-family:var(--fh)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 var(--fb)}
+main{max-width:640px;margin:0 auto;padding:14px}
+h1{font-size:27px;margin:6px 0 2px;text-transform:uppercase;letter-spacing:.03em;line-height:1.1}h2{font-size:17px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.05em}
+.mut{color:var(--mut);font-size:13px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;position:relative;margin-bottom:12px}
+.hb{width:42px;height:42px;flex:none;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--tx);font-size:20px;line-height:1}
+#menu{position:absolute;right:0;top:48px;background:var(--card);border:1px solid var(--line);border-radius:12px;min-width:180px;box-shadow:0 6px 20px rgba(0,0,0,.18);z-index:5;overflow:hidden}
+#menu[hidden]{display:none}
+#menu button{display:block;width:100%;text-align:left;padding:12px 14px;border:0;background:none;color:var(--tx);font:inherit}
+#menu button.on{font-weight:700;color:var(--ac)}
+.def dt{font-weight:700;margin-top:14px}.def dt:first-child{margin-top:0}
+.def dd{margin:3px 0 0;color:var(--mut);font-size:14px}
+.def dd b{color:var(--tx)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+input,textarea,select{width:100%;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--tx);font:inherit}
+button.pri{width:100%;padding:11px;border:0;border-radius:10px;background:var(--ac);color:var(--onac,#fff);font:inherit;font-family:var(--fh);font-size:17px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;margin-top:8px}
+button.pri:disabled{opacity:.5}
+button.sec{padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--tx);font:inherit}
+.leg{display:grid;grid-template-columns:1fr 84px 34px;gap:6px;margin-bottom:8px;align-items:center}
+.leg .note{grid-column:1/-1;font-size:12px;color:var(--mut);margin-top:-3px}
+.pc{display:flex;align-items:center;gap:3px}
+.x{border:0;background:none;color:var(--mut);font-size:22px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+label.f{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+#prev{max-width:100%;max-height:180px;border-radius:10px;margin-top:8px;display:none}
+.badge{display:inline-block;padding:5px 12px;border-radius:99px;font-weight:700;font-size:16px;letter-spacing:.03em;text-transform:uppercase;color:var(--onb,#fff)}
+.b-good{background:var(--good)}.b-warn{background:var(--warn)}.b-bad{background:var(--bad)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.stat{border:1px solid var(--line);border-radius:10px;padding:9px}
+.stat b{display:block;font-size:18px}.stat span{font-size:12px;color:var(--mut)}
+.ck{list-style:none;padding:0;margin:8px 0}.ck li{padding:3px 0;font-size:14px}
+.ok{color:var(--good)}.no{color:var(--bad)}
+.set{padding:10px 0;border-bottom:1px solid var(--line)}.set:last-child{border:0}
+.set .mut{margin-top:3px}
+.msg{font-size:13px;margin-top:8px}
+.pre{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 6px}
+.pre button{padding:9px 4px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--tx);font:inherit;font-size:13px;font-weight:600}
+.pre button.on{background:var(--ac);color:var(--onac,#fff);border-color:var(--ac)}
+.opts{display:grid;gap:8px}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--tx);text-align:left;font:inherit}
+.opt.on{border-color:var(--ac);box-shadow:0 0 0 2px var(--ac)}
+.opt small{color:var(--mut);font-size:12px}
+input[type=range]{padding:0;accent-color:var(--ac)}
+.rng{display:flex;justify-content:space-between;font-size:12px;color:var(--mut)}
+.mt{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--mut)}
+.mt button{padding:4px 10px;border:1px solid var(--line);border-radius:99px;background:var(--card);color:var(--tx);font:inherit;font-size:12px}
+.mt button.on{background:var(--ac);color:var(--onac,#fff);border-color:var(--ac)}
+input[type=checkbox]{width:auto;margin:0 8px 0 0;accent-color:var(--ac)}
+.chk{display:flex;align-items:center;margin-top:12px;font-size:14px}
+#refrow[hidden]{display:none}
+select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);background-position:calc(100% - 15px) 55%,calc(100% - 10px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:26px}
+.props{margin-top:10px;display:grid;gap:6px}
+.prop{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.prop b{display:block;font-size:15px}.prop .pl{font-size:14px}.prop small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
+.pb{display:flex;gap:5px}.pb button{min-width:62px;padding:7px 6px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--tx);font:inherit;font-size:13px;line-height:1.2}
+.pb button span{display:block;font-family:var(--fh);font-size:16px;font-weight:700}
+.pb button.added{background:var(--ac);color:var(--onac,#fff);border-color:var(--ac)}
+.more{width:100%;margin-top:8px}
+#coderow[hidden]{display:none}
+.sw{display:flex;gap:4px}.sw i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.45)}
+</style>
+</head>
+<body>
+<main>
+<header class="top">
+<div><h1>Bet Payoff Calculator</h1>
+<div class="mut">Live prop lines, fair odds, and the math on your pick, parlay or single. Estimates, not advice.</div></div>
+<button id="menuBtn" class="hb" aria-label="Menu" aria-expanded="false">☰</button>
+<nav id="menu" hidden><button data-p="1" class="on">Calculator</button><button data-p="2">Settings</button><button data-p="3">Definitions</button><button data-p="4">Appearance</button></nav>
+</header>
+
+<section id="p1">
+  <div class="card">
+    <h2>1. Find props</h2>
+    <div class="row" style="grid-template-columns:1fr 1.8fr">
+      <div><label class="f" for="sport">Sport</label><select id="sport"></select></div>
+      <div><label class="f" for="game">Game</label><select id="game"><option value="">Loading…</option></select></div>
+    </div>
+    <div id="coderow" hidden><label class="f" for="code">Passcode</label><div class="row"><input id="code" type="password" autocomplete="current-password"><button class="sec" id="codeBtn">Unlock</button></div></div>
+    <label class="f" for="q">Search player or stat</label>
+    <input id="q" type="search" placeholder="e.g. Hurts, receptions" autocomplete="off">
+    <label class="chk"><input type="checkbox" id="dfsOnly" checked>Only lines on PrizePicks, Underdog or Pick6</label>
+    <div class="msg mut" id="status">Pick a game to load its player props.</div>
+    <div class="props" id="props"></div>
+  </div>
+  <div class="card">
+    <h2>2. Legs and hit chance</h2>
+    <div id="legs"></div>
+    <button class="sec" id="add">+ Add leg</button>
+    <div class="mut" style="margin-top:8px">Props you add use the fair odds from sportsbooks. You can still type legs in by hand or edit any hit chance. Matchup is optional: leave it on Unknown if you don’t have a read.</div>
+    <div class="row">
+      <div><label class="f" for="stake">Stake ($)</label><input id="stake" type="number" min="0" step="1"></div>
+      <div><label class="f" for="tiers">Payout (hits:multiple)</label><input id="tiers" placeholder="3:5  or  3:2.25, 2:1.25"></div>
+    </div>
+    <div class="mut">Multiple = total return per $1, stake included. A 5x power play on 3 picks is <b>3:5</b>.</div>
+  </div>
+  <div class="card">
+    <h2>Promos (optional)</h2>
+    <label class="chk"><input type="checkbox" id="bonus">Paid with bonus funds (a win pays profit only)</label>
+    <label class="f" for="tiers2">Boosted payout</label>
+    <input id="tiers2" placeholder="Same format, like 4:7">
+    <label class="chk"><input type="checkbox" id="refund">Refund if it loses (as bonus credit)</label>
+    <div id="refrow" hidden><label class="f" for="refcap">Refund up to ($)</label><input id="refcap" type="number" min="0" step="1" value="10"></div>
+    <div class="mut" style="margin-top:10px">Skip anything that doesn’t apply. Promo terms differ by app, so check the fine print.</div>
+  </div>
+  <div class="card" id="out"></div>
+</section>
+
+<section id="p2" hidden>
+  <div class="card">
+    <h2>How serious is this bet?</h2>
+    <input type="range" id="serious" min="0" max="100" step="5" aria-label="How serious is this bet">
+    <div class="rng"><span>Just for fun</span><span>Serious</span></div>
+    <div class="msg mut" id="serDesc"></div>
+    <h2 style="margin-top:18px">Your criteria</h2>
+    <div class="mut">Every rule used in the verdict. Saved in this browser.</div>
+    <div class="mut" style="margin-top:10px"><b>New to betting math?</b> Start with a style below, then fine-tune. Changing any value makes it Custom.</div>
+    <div class="pre" id="pre"><button data-pre="conservative">Conservative</button><button data-pre="balanced">Balanced</button><button data-pre="aggressive">Aggressive</button></div>
+    <div class="msg mut" id="preDesc"></div>
+    <div id="sets"></div>
+    <button class="sec" id="reset" style="margin-top:10px">Reset to defaults</button>
+  </div>
+</section>
+
+<section id="p4" hidden>
+  <div class="card">
+    <h2>Appearance</h2>
+    <div class="mut">Pick a font and a color style. Saved in this browser.</div>
+    <label class="f">Font</label>
+    <div class="opts" id="fonts"></div>
+    <label class="f">Colors</label>
+    <div class="opts" id="pals"></div>
+  </div>
+</section>
+
+<section id="p3" hidden>
+  <div class="card">
+    <h2>Definitions</h2>
+    <dl class="def">
+      <dt>EV (expected value)</dt>
+      <dd>The average profit or loss per bet if you could place the exact same bet many times, using your hit-chance estimates. It’s a long-run average, not what happens on any single bet.</dd>
+      <dt>EV %</dt>
+      <dd>EV as a percent of the amount staked. <b>+8%</b> means you’d expect to make 8¢ per $1 risked over time. <b>−10%</b> means you’d expect to lose 10¢ per $1. Example: three 60% legs on a 5x power play hit 21.6% of the time, so 0.216 × 5 = 1.08 returned per $1, which is <b>+8% EV</b>.</dd>
+      <dt>Chance every leg hits</dt>
+      <dd>The odds all legs win at once. For independent legs, it’s the leg probabilities multiplied together.</dd>
+      <dt>Chance of profit</dt>
+      <dd>The odds you get back more than you staked. On flex plays this includes partial hits that pay above 1x.</dd>
+      <dt>Break-even per leg</dt>
+      <dd>The hit chance each leg needs for the bet to have 0% EV. If your estimates are above it, the bet has an edge. If below, the payout isn’t enough to cover the risk.</dd>
+      <dt>Edge per leg</dt>
+      <dd>Your average leg hit chance minus the break-even per leg, in percentage points.</dd>
+      <dt>Payout multiple</dt>
+      <dd>Total return per $1 staked, stake included. A 5x payout on $10 returns $50 ($40 profit). Entered as hits:multiple, like <b>3:5</b>.</dd>
+      <dt>Power vs. Flex</dt>
+      <dd>Power plays need every pick to hit for a bigger payout. Flex plays pay smaller amounts for some misses.</dd>
+      <dt>Kelly criterion</dt>
+      <dd>A formula for the stake size that grows a bankroll fastest given your edge. Full Kelly is aggressive and swings a lot, so most people use a fraction of it.</dd>
+      <dt>Kelly fraction</dt>
+      <dd>The share of full Kelly you actually use. 0.25 means a quarter of it.</dd>
+      <dt>Bankroll</dt>
+      <dd>The total money you’ve set aside for betting.</dd>
+      <dt>Bonus funds</dt>
+      <dd>Promo money instead of your own cash. A win usually pays the profit only, not the stake back, so you can’t lose real money on the entry. The app shows expected cash back per $1 of bonus instead of EV.</dd>
+      <dt>Boosted payout</dt>
+      <dd>A temporary higher multiple offered by the app. The calculator compares EV with the normal payout and the boosted one so you can see what the boost is worth.</dd>
+      <dt>Refund offer</dt>
+      <dd>Some promos return your stake as bonus credit if you lose. It’s counted at the credit value you set in Settings, since credit is worth less than cash.</dd>
+      <dt>Matchup adjustment</dt>
+      <dd>An optional per-leg read. Marking a matchup favorable or unfavorable moves that leg’s hit chance up or down by the number of points set in Settings. Leave it on Unknown if you don’t have a read.</dd>
+      <dt>Seriousness slider</dt>
+      <dd>Blends two ways of sizing a bet. Toward “Just for fun,” the stake limit comes from your max-stake caps and the verdict thresholds relax. Toward “Serious,” it uses Kelly sizing and your full criteria.</dd>
+      <dt>Estimate haircut</dt>
+      <dd>A conservative cut applied to every hit-chance estimate, since estimates are often too optimistic.</dd>
+      <dt>Correlation</dt>
+      <dd>When legs depend on each other, like two players in the same game. This calculator assumes legs are independent, so correlated legs make the real odds differ from the displayed ones.</dd>
+      <dt>Fair probability</dt>
+      <dd>The hit chance sportsbooks are pricing, with their built-in margin removed. The app averages every book quoting that exact line, and counts Pinnacle (the sharpest book) double. If no book has the exact line on the DFS app, it uses the nearest book line and says so. It’s the market’s view, so beating it takes a real edge.</dd>
+      <dt>Implied probability</dt>
+      <dd>The hit chance a payout implies. A 2x payout on a single pick implies 50%.</dd>
+    </dl>
+  </div>
+</section>
+
+<div class="mut" style="padding:4px 2px 18px">Gut-check math only, not financial or betting advice. Results are only as good as the probabilities you put in. Bet only what you can afford to lose.</div>
+</main>
+
+<script>
+const DEF=[
+ {k:'bankroll',l:'Bankroll ($)',d:500,s:10,h:'Total money you set aside for betting. Stake limits are based on it.'},
+ {k:'defaultStake',l:'Default stake ($)',d:10,s:1,h:'Pre-filled stake on a new check.'},
+ {k:'minEV',l:'Min EV % for “Worth it”',d:5,s:1,h:'Expected profit per $1 staked, as a percent. 5 means 5¢ per $1.'},
+ {k:'marginalEV',l:'Min EV % for “Marginal”',d:0,s:1,h:'Below this the verdict is “Pass”.'},
+ {k:'minProb',l:'Min chance to win % (Worth it)',d:10,s:1,h:'Filters out long shots that pay well but almost never hit.'},
+ {k:'edgePerLeg',l:'Min edge per leg (pts)',d:1,s:.5,h:'How many points above break-even each leg should be, on average.'},
+ {k:'maxLegs',l:'Max legs',d:6,s:1,h:'More legs than this fails the check.'},
+ {k:'haircut',l:'Estimate haircut %',d:0,s:1,h:'Shaves every leg’s hit chance by this relative percent, to stay conservative.'},
+ {k:'matchupAdj',l:'Matchup adjustment (pts)',d:5,s:1,h:'Points added to or taken from a leg’s hit chance when you mark its matchup favorable or unfavorable.'},
+ {k:'bonusValue',l:'Bonus credit value (¢ per $1)',d:70,s:5,h:'What $1 of refunded bonus credit is worth to you in cash terms. Credits often expire or have restrictions.'},
+ {k:'bonusTarget',l:'Bonus use target (¢ per $1)',d:50,s:5,h:'For bonus-funded entries: the expected cash you want back per $1 of bonus money to call it a good use.'},
+ {k:'kellyFrac',l:'Kelly fraction',d:.25,s:.05,h:'1 is full Kelly (aggressive). 0.25 is a common cautious choice.'},
+ {k:'maxStakePct',l:'Max stake % of bankroll',d:2,s:.5,h:'Hard ceiling on any one bet.'},
+ {k:'maxStakeAbs',l:'Max stake ($)',d:50,s:5,h:'Dollar ceiling regardless of bankroll.'}
+];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S={};try{S=JSON.parse(localStorage.getItem('bgc.settings')||'{}')}catch(e){}
+const PRESETS={
+ conservative:{marginalEV:5,minEV:10,minProb:15,edgePerLeg:2,maxLegs:3,haircut:8,kellyFrac:.1,maxStakePct:1,maxStakeAbs:25},
+ balanced:{marginalEV:3,minEV:8,minProb:10,edgePerLeg:1.5,maxLegs:4,haircut:5,kellyFrac:.25,maxStakePct:2,maxStakeAbs:50},
+ aggressive:{marginalEV:1,minEV:5,minProb:5,edgePerLeg:.5,maxLegs:6,haircut:2,kellyFrac:.5,maxStakePct:4,maxStakeAbs:100}
+};
+const PN=['conservative','balanced','aggressive'],PK=Object.keys(PRESETS.balanced);
+const PDESC={
+ conservative:'Conservative: needs a bigger edge (10%+ EV), allows few legs, trims your estimates by 8%, and keeps stakes small. Fewer bets pass.',
+ balanced:'Balanced (default): “Worth it” at 8%+ EV, “Marginal” from 3%, up to 4 legs, estimates trimmed 5%, and quarter-Kelly stakes.',
+ aggressive:'Aggressive: accepts smaller edges (5%+ EV), up to 6 legs, trims estimates only 2%, and allows bigger stakes. More bets pass, with bigger swings and more exposure to estimate errors.',
+ custom:'Custom: you’ve changed some values. Pick a style above to start over.'
+};
+const NOTE={
+ bankroll:'Only use money you can afford to lose.',
+ marginalEV:'Suggested floor: 2–5%.',
+ minEV:'Suggested: 5–10%. Aim higher if your hit chances are rough guesses.',
+ minProb:'Suggested: 5–15%.',
+ edgePerLeg:'Suggested: 0.5–2 pts.',
+ maxLegs:'Suggested: 2–6. More legs magnify estimate errors.',
+ haircut:'Suggested: 2–8%, about how far off your estimates tend to be.',
+ matchupAdj:'Suggested: 3–7 pts.',
+ bonusValue:'Suggested: 60–80¢.',
+ bonusTarget:'Suggested: 40–70¢. Long shots tend to convert bonus money better.',
+ kellyFrac:'Suggested: 0.1–0.5.',
+ maxStakePct:'Suggested: 1–4%.',
+ maxStakeAbs:'Pick an amount you’d be fine losing.'
+};
+DEF.forEach(d=>{if(typeof S[d.k]!=='number')S[d.k]=(PRESETS.balanced[d.k]??d.d)});
+if(typeof S.serious!=='number')S.serious=50;
+const save=()=>{try{localStorage.setItem('bgc.settings',JSON.stringify(S))}catch(e){}};
+let legs=[{name:'',p:50,note:''}];
+let file=null;
+
+/* tabs */
+const closeMenu=()=>{$('menu').hidden=true;$('menuBtn').setAttribute('aria-expanded','false')};
+function tab(n){[1,2,3,4].forEach(i=>{$('p'+i).hidden=i!==n});document.querySelectorAll('#menu button').forEach(b=>{b.className=+b.dataset.p===n?'on':''});closeMenu();window.scrollTo(0,0)}
+$('menuBtn').onclick=e=>{e.stopPropagation();const open=$('menu').hidden;$('menu').hidden=!open;$('menuBtn').setAttribute('aria-expanded',String(open))};
+$('menu').onclick=e=>{const p=e.target.dataset.p;if(p)tab(+p)};
+document.addEventListener('click',e=>{if(!$('menu').contains(e.target))closeMenu()});
+
+/* appearance */
+const FONTS=[['barlow','Barlow Condensed','Clean and athletic','Barlow Condensed,sans-serif'],['oswald','Oswald','Bold scoreboard','Oswald,sans-serif'],['saira','Saira Condensed','Racing and tech','Saira Condensed,sans-serif'],['chakra','Chakra Petch','Angular, techy','Chakra Petch,sans-serif'],['teko','Teko','Jersey numbers','Teko,sans-serif']];
+const PALS=[['sage','Sage and Sand',['#56705d','#4a6352','#f3eedf','#e5cf99']],['forest','Forest Night',['#1f2b24','#2a3a31','#ece5d2','#b9d28b']],['clay','Sage and Clay',['#6a7f67','#5a6e58','#faf5ea','#e09a6a']],['light','Light Sage',['#dde6da','#f6f8f2','#25352a','#3f6b4f']]];
+let L={font:'barlow',pal:'sage'};
+try{Object.assign(L,JSON.parse(localStorage.getItem('bgc.look')||'{}'))}catch(e){}
+if(!FONTS.some(f=>f[0]===L.font))L.font='barlow';
+if(!PALS.some(p=>p[0]===L.pal))L.pal='sage';
+function applyLook(persist){
+ document.documentElement.dataset.font=L.font;document.documentElement.dataset.palette=L.pal;
+ if(persist){try{localStorage.setItem('bgc.look',JSON.stringify(L))}catch(e){}}
+ $('fonts').innerHTML=FONTS.map(f=>`<button class="opt${L.font===f[0]?' on':''}" data-font="${f[0]}" style="font-family:${f[3]}"><span style="font-size:20px;font-weight:600;letter-spacing:.03em;text-transform:uppercase">${f[1]}</span><small>${f[2]}</small></button>`).join('');
+ $('pals').innerHTML=PALS.map(p=>`<button class="opt${L.pal===p[0]?' on':''}" data-pal="${p[0]}"><span>${p[1]}</span><span class="sw">${p[2].map(c=>`<i style="background:${c}"></i>`).join('')}</span></button>`).join('');
+}
+$('fonts').onclick=e=>{const b=e.target.closest('[data-font]');if(b){L.font=b.dataset.font;applyLook(true)}};
+$('pals').onclick=e=>{const b=e.target.closest('[data-pal]');if(b){L.pal=b.dataset.pal;applyLook(true)}};
+applyLook(false);
+
+/* settings */
+function renderSets(){
+ $('sets').innerHTML=DEF.map(d=>`<div class="set"><label class="f" style="margin:0 0 4px;color:var(--tx);font-size:14px;font-weight:600" for="s_${d.k}">${d.l}</label><input id="s_${d.k}" data-k="${d.k}" type="number" step="${d.s}" value="${S[d.k]}"><div class="mut">${d.h}${NOTE[d.k]?' <b>'+NOTE[d.k]+'</b>':''}</div></div>`).join('');
+}
+$('sets').addEventListener('input',e=>{const k=e.target.dataset.k;if(!k)return;const v=parseFloat(e.target.value);S[k]=isNaN(v)?0:v;save();showPre();calc()});
+function curPre(){return PN.find(n=>PK.every(k=>S[k]===PRESETS[n][k]))||'custom'}
+function showPre(){const c=curPre();document.querySelectorAll('#pre button').forEach(b=>{b.className=b.dataset.pre===c?'on':''});$('preDesc').textContent=PDESC[c]}
+function applyPreset(n){PK.forEach(k=>S[k]=PRESETS[n][k]);save();renderSets();showPre();calc()}
+$('pre').onclick=e=>{const n=e.target.dataset.pre;if(n)applyPreset(n)};
+$('reset').onclick=()=>applyPreset('balanced');
+const SERLBL=[[15,'Just for fun','Stake limit follows your max-stake caps instead of Kelly, and the verdict only asks for break-even or better. Most entries lose money over time, so results show what the fun is expected to cost.'],[40,'Mostly fun','Mostly your max-stake caps with a little Kelly, and easy thresholds.'],[65,'Balanced','An even blend of your caps and Kelly, with half-strength thresholds.'],[90,'Analytical','Mostly Kelly sizing, with thresholds close to your criteria.'],[101,'Serious','Strict Kelly sizing and your full criteria below.']];
+function showSer(){const v=S.serious,r=SERLBL.find(x=>v<x[0]);$('serDesc').innerHTML='<b>'+r[1]+'.</b> '+r[2];$('serious').value=v}
+$('serious').oninput=e=>{S.serious=parseFloat(e.target.value)||0;save();showSer();calc()};
+
+/* legs */
+function renderLegs(){
+ $('legs').innerHTML=legs.map((l,i)=>`<div class="leg"><input data-i="${i}" data-f="name" value="${esc(l.name)}" placeholder="Player, stat, line" aria-label="Leg ${i+1}"><label class="pc"><input type="number" min="1" max="99" step="1" data-i="${i}" data-f="p" value="${l.p}" aria-label="Hit chance %"><span>%</span></label><button class="x" data-del="${i}" aria-label="Remove leg">×</button>${l.note?`<div class="note">${esc(l.note)}</div>`:''}<div class="mt" role="group" aria-label="Matchup for leg ${i+1}"><span>Matchup (optional)</span>${[[0,'Unknown'],[1,'Favorable'],[-1,'Unfavorable']].map(o=>`<button data-i="${i}" data-m="${o[0]}" class="${(l.m||0)===o[0]?'on':''}">${o[1]}</button>`).join('')}</div></div>`).join('');
+}
+$('legs').addEventListener('input',e=>{const i=e.target.dataset.i;if(i==null)return;const f=e.target.dataset.f;legs[i][f]=f==='p'?(parseFloat(e.target.value)||0):e.target.value;calc()});
+$('legs').addEventListener('click',e=>{const mb=e.target.closest('[data-m]');if(mb){legs[+mb.dataset.i].m=+mb.dataset.m;renderLegs();calc();return}const d=e.target.dataset.del;if(d==null)return;legs.splice(+d,1);if(!legs.length)legs.push({name:'',p:50,note:''});renderLegs();calc()});
+$('add').onclick=()=>{legs.push({name:'',p:50,note:''});renderLegs();calc()};
+$('stake').oninput=calc;$('tiers').oninput=calc;
+function updPromo(){const b=$('bonus').checked;$('refund').disabled=b;$('refrow').hidden=b||!$('refund').checked}
+$('bonus').onchange=()=>{updPromo();calc()};$('refund').onchange=()=>{updPromo();calc()};$('tiers2').oninput=calc;$('refcap').oninput=calc;
+
+/* math */
+const parseTiers=s=>{const t={};String(s).split(/[,;\n]+/).forEach(x=>{const m=x.match(/(\d+)\s*[:=x]\s*([\d.]+)/);if(m)t[+m[1]]=parseFloat(m[2])});return t};
+function dist(ps){let d=[1];for(const p of ps){const n=new Array(d.length+1).fill(0);d.forEach((v,k)=>{n[k]+=v*(1-p);n[k+1]+=v*p});d=n}return d}
+let BON=false;
+const evOf=(d,t)=>d.reduce((a,v,k)=>a+v*(t[k]||0),0)-(BON?0:1);
+function breakEven(n,t){if(evOf(dist(Array(n).fill(.999)),t)<0)return null;let lo=0,hi=1;for(let i=0;i<50;i++){const m=(lo+hi)/2;if(evOf(dist(Array(n).fill(m)),t)<0)lo=m;else hi=m}return hi}
+function kelly(d,t){let best=0,bg=0;for(let f=.001;f<.99;f+=.001){let g=0;for(let k=0;k<d.length;k++){if(d[k]===0)continue;const w=1+f*((t[k]||0)-1);if(w<=0){g=-Infinity;break}g+=d[k]*Math.log(w)}if(g>bg){bg=g;best=f}}return best}
+const $$=v=>'$'+v.toFixed(2);
+const pct=(v,dp=1)=>(v*100).toFixed(dp)+'%';
+
+function calc(){
+ const n=legs.length,t0=parseTiers($('tiers').value),tb=parseTiers($('tiers2').value),boosted=Object.keys(tb).length>0,stake=parseFloat($('stake').value)||0;
+ const bonus=$('bonus').checked,refOn=$('refund').checked&&!bonus,refCap=parseFloat($('refcap').value)||0;
+ BON=bonus;
+ const refR=(refOn&&stake>0)?Math.min(stake,refCap)*S.bonusValue/100/stake:0;
+ const mk=src=>{const o={};for(const k in src)o[k]=bonus?Math.max(src[k]-1,0):src[k];if(refR>0)for(let k=0;k<=n;k++)if(!(k in o))o[k]=refR;return o};
+ const t=mk(boosted?tb:t0),tNorm=mk(t0);
+ if(!Object.keys(t0).length&&!boosted){$('out').innerHTML='<h2>3. Verdict</h2><div class="mut">Enter the payout (for example 3:5) to see the math.</div>';return}
+ const ps=legs.map(l=>Math.min(.999,Math.max(.001,(Math.min(99,Math.max(1,l.p+(l.m||0)*S.matchupAdj))/100)*(1-S.haircut/100))));
+ const d=dist(ps),ev=evOf(d,t),hitAll=d[n]||0;
+ const cmp=(boosted&&Object.keys(t0).length)?(()=>{const e0=evOf(d,tNorm);return `<div class="stat" style="margin-top:8px"><b>${(e0*100).toFixed(1)}% → ${(ev*100).toFixed(1)}%</b><span>${bonus?'Expected cash':'EV'} per $1, normal vs boosted payout. The boost is worth about ${$$((ev-e0)*stake)} on ${$$(stake)}.</span></div>`})():'';
+ const src0=boosted?tb:t0,refAdd=refR>0?d.reduce((a,v,k)=>a+((k in src0)?0:v*refR),0)*stake:0;
+ const refTxt=refAdd>0?`<div class="mut" style="margin:6px 0">Refund offer adds about <b>${$$(refAdd)}</b> of expected value, counting refunded credit at ${S.bonusValue}¢ per $1.</div>`:'';
+ if(bonus){
+  const tgt=S.bonusTarget/100,pw=d.reduce((a,v,k)=>a+((t[k]||0)>0?v:0),0),top=Math.max(...Object.values(t));
+  const vv=ev>=tgt?['Good use','b-good']:(ev>=tgt*.6?['Okay use','b-warn']:['Weak use','b-bad']);
+  $('out').innerHTML=`<h2>3. Verdict</h2><span class="badge ${vv[1]}">${vv[0]}</span>
+  <div class="grid">
+   <div class="stat"><b>${pct(hitAll)}</b><span>Chance every leg hits</span></div>
+   <div class="stat"><b>${pct(pw)}</b><span>Chance of any payout</span></div>
+   <div class="stat"><b>${(ev*100).toFixed(0)}¢</b><span>Expected cash per $1 of bonus (your target: ${S.bonusTarget}¢)</span></div>
+   <div class="stat"><b>${$$(ev*stake)}</b><span>Expected cash from this ${$$(stake)} bonus entry</span></div>
+  </div>${cmp}
+  <div class="msg">Best case: about ${$$(stake*top)} in cash if it all hits. Bonus funds aren’t your cash, so there’s no stake limit here and a loss costs only the bonus.</div>
+  <div class="mut" style="margin-top:6px">Higher-payout, lower-probability slips usually turn bonus money into more cash. Assumes a win pays profit only (not the stake back) and legs are independent.</div>`;
+  return}
+ const pProfit=d.reduce((a,v,k)=>a+((t[k]||0)>1?v:0),0);
+ const gm=Math.exp(ps.reduce((a,p)=>a+Math.log(p),0)/n);
+ const be=breakEven(n,t);
+ const edge=be==null?null:(gm-be)*100;
+ const fk=kelly(d,t);
+ const w=S.serious/100,hard=Math.min(S.maxStakePct/100*S.bankroll,S.maxStakeAbs),kcap=Math.max(0,Math.min(fk*S.kellyFrac*S.bankroll,hard)),cap=w*kcap+(1-w)*hard;
+ const T={minEV:S.minEV*w,marg:S.marginalEV*w,minProb:S.minProb*w,edge:S.edgePerLeg*w,legs:S.maxLegs+Math.round((1-w)*2)};
+ const top=Math.max(...Object.values(t));
+ const checks=[
+  [ev*100>=T.minEV,`EV ${(ev*100).toFixed(1)}% vs ${+T.minEV.toFixed(1)}% needed`],
+  [hitAll*100>=T.minProb,`Win chance ${pct(hitAll)} vs ${+T.minProb.toFixed(1)}% needed`],
+  [n<=T.legs,`${n} leg${n>1?'s':''} vs ${T.legs} max`],
+  [edge!=null&&edge>=T.edge,edge==null?'Can’t break even at these payouts':`Edge per leg ${edge.toFixed(1)} pts vs ${+T.edge.toFixed(1)} needed`]
+ ];
+ const all=checks.every(c=>c[0]);
+ const v=all?['Worth it','b-good']:(ev*100>=T.marg&&ev>=0?['Marginal','b-warn']:['Pass','b-bad']);
+ const over=stake>cap+.005;
+ $('out').innerHTML=`<h2>3. Verdict</h2><span class="badge ${v[1]}">${v[0]}</span>
+ <div class="grid">
+  <div class="stat"><b>${pct(hitAll)}</b><span>Chance every leg hits</span></div>
+  <div class="stat"><b>${pct(pProfit)}</b><span>Chance of profit</span></div>
+  <div class="stat"><b class="${ev>=0?'ok':'no'}">${(ev*100).toFixed(1)}%</b><span>EV per $1 (${ev>=0?'+':'−'}${$$(Math.abs(ev*stake))} on ${$$(stake)})</span></div>
+  <div class="stat"><b>${be==null?'n/a':pct(be)}</b><span>Break-even per leg (yours: ${pct(gm)})</span></div>
+ </div>
+ ${cmp}${refTxt}<ul class="ck">${checks.map(c=>`<li class="${c[0]?'ok':'no'}">${c[0]?'✓':'✗'} ${c[1]}</li>`).join('')}</ul>
+ <div class="stat" style="margin-top:8px"><b>${cap>0?$$(cap):'$0.00'}</b><span>Stake limit at this seriousness level. Kelly says ${$$(kcap)}; your caps (${S.maxStakePct}% of bankroll, ${$$(S.maxStakeAbs)}) allow ${$$(hard)}.</span></div>
+ <div class="msg">${ev<0?`Expected cost of this entry: about <b>${$$(-ev*stake)}</b> on ${$$(stake)}. `:''}${cap<=0?'No positive edge at these numbers, so the math says don’t stake anything.':over?`<span class="no">Your ${$$(stake)} stake is above that limit.</span>`:`<span class="ok">Your stake is within your limit.</span>`} Per $1 risked: up to ${$$(top-1)} profit if it all hits, and ${pct(1-pProfit)} of the time you take a loss.</div>
+ ${legs.some(l=>l.m)?`<div class="mut" style="margin-top:6px">Matchup reads applied: ±${S.matchupAdj} pts on ${legs.filter(l=>l.m).length} leg${legs.filter(l=>l.m).length>1?'s':''}.</div>`:''}
+ <div class="mut" style="margin-top:6px">Assumes legs are independent. Same-game or related legs are usually correlated, so lower the hit chances if so.</div>`;
+}
+
+/* live prop finder */
+const SPORT_LIST=[['football_nfl','NFL'],['basketball_nba','NBA'],['hockey_nhl','NHL'],['football_ncaaf','College Football'],['basketball_ncaab','College Basketball'],['baseball_mlb','MLB']];
+let F={sport:'football_nfl',game:'',dfsOnly:true,code:''};
+try{Object.assign(F,JSON.parse(localStorage.getItem('bgc.finder')||'{}'))}catch(e){}
+const saveF=()=>{try{localStorage.setItem('bgc.finder',JSON.stringify(F))}catch(e){}};
+let PROPS=[],SHOWN=40,added=new Set();
+const setStatus=(t,bad)=>{const s=$('status');s.className='msg '+(bad?'no':'mut');s.textContent=t};
+async function api(path,params){
+ const u=new URL(path,location.origin);
+ for(const[k,v]of Object.entries(params||{}))u.searchParams.set(k,v);
+ if(F.code)u.searchParams.set('code',F.code);
+ const r=await fetch(u);
+ let body={};try{body=await r.json()}catch(e){}
+ if(r.status===401){$('coderow').hidden=false;throw new Error('Enter the passcode to load lines.')}
+ if(!r.ok)throw new Error(body.error||'Couldn’t load lines right now.');
+ return body;
+}
+const fmtTime=s=>{const d=new Date(s);return isNaN(d)?'':d.toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'})};
+const shortTeam=t=>String(t||'').split(' ').slice(-1)[0];
+async function loadGames(){
+ const g=$('game');g.innerHTML='<option value="">Loading…</option>';$('props').innerHTML='';PROPS=[];
+ setStatus('Loading games…');
+ try{
+  const d=await api('/api/events',{sport:F.sport});
+  if(!d.events.length){g.innerHTML='<option value="">No games in the next few days</option>';setStatus('No upcoming games for this sport.');return}
+  g.innerHTML='<option value="">Choose a game</option>'+d.events.map(e=>`<option value="${esc(e.id)}">${esc(fmtTime(e.start))} · ${esc(shortTeam(e.away))} @ ${esc(shortTeam(e.home))}</option>`).join('');
+  if(F.game&&d.events.some(e=>String(e.id)===String(F.game))){g.value=F.game;loadProps()}
+  else setStatus('Pick a game to load its player props.');
+ }catch(err){g.innerHTML='<option value="">Unavailable</option>';setStatus(err.message,true)}
+}
+async function loadProps(){
+ if(!F.game){$('props').innerHTML='';return}
+ setStatus('Loading props…');$('props').innerHTML='';
+ try{
+  const d=await api('/api/props',{sport:F.sport,event:F.game});
+  PROPS=d.props||[];SHOWN=40;
+  const t=new Date(d.fetched);
+  setStatus(`${PROPS.length} props for ${d.game}. Odds as of ${isNaN(t)?'just now':t.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}.`);
+  renderProps();
+ }catch(err){setStatus(err.message,true)}
+}
+function propName(p,side){
+ const yn=p.line==null,s=yn?(side==='over'?'Yes':'No'):(side==='over'?'Over':'Under');
+ return yn?`${p.player} ${p.label} ${s}`:`${p.player} ${s} ${p.line} ${p.label}`;
+}
+function renderProps(){
+ const q=$('q').value.trim().toLowerCase();
+ const list=PROPS.map((p,i)=>[p,i]).filter(([p])=>(!F.dfsOnly||p.apps.length)&&(!q||(p.player+' '+p.label).toLowerCase().includes(q)));
+ if(PROPS.length&&!list.length){$('props').innerHTML=`<div class="mut">No matches${F.dfsOnly?'. Try unchecking the DFS-only box.':'.'}</div>`;return}
+ const pc=(p,side)=>p.over==null?'—':(side==='over'?Math.round(p.over*100):100-Math.round(p.over*100))+'%';
+ $('props').innerHTML=list.slice(0,SHOWN).map(([p,i])=>{
+  const yn=p.line==null;
+  const src=p.books?`fair from ${p.books} book${p.books>1?'s':''}${p.bookLine!=null?` (books at ${p.bookLine})`:''}`:'no book odds yet';
+  const btn=side=>`<button data-pi="${i}" data-side="${side}" class="${added.has(i+side)?'added':''}">${yn?(side==='over'?'Yes':'No'):(side==='over'?'Over':'Under')}<span>${pc(p,side)}</span></button>`;
+  return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${p.apps.length?esc(p.apps.join(' · '))+' · ':''}${src}</small></div><div class="pb">${btn('over')}${btn('under')}</div></div>`;
+ }).join('')+(list.length>SHOWN?`<button class="sec more" id="morebtn">Show more (${list.length-SHOWN})</button>`:'');
+}
+function addProp(i,side){
+ const p=PROPS[i];if(!p)return;
+ const prob=p.over==null?50:(side==='over'?Math.round(p.over*100):100-Math.round(p.over*100));
+ const note=p.books?`Fair ${prob}% from ${p.books} book${p.books>1?'s':''}${p.bookLine!=null?`, priced at ${p.bookLine} not ${p.line}, so adjust`:''}`:'No book odds; 50% placeholder, set your own';
+ const leg={name:propName(p,side),p:Math.min(99,Math.max(1,prob)),note};
+ if(legs.length===1&&!legs[0].name&&legs[0].p===50)legs=[leg];else legs.push(leg);
+ added.add(i+side);renderLegs();calc();renderProps();
+ setStatus(`Added ${leg.name}. ${legs.length} leg${legs.length>1?'s':''} in the slip below.`);
+}
+function initFinder(){
+ $('sport').innerHTML=SPORT_LIST.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join('');
+ if(!SPORT_LIST.some(s=>s[0]===F.sport))F.sport='football_nfl';
+ $('sport').value=F.sport;$('dfsOnly').checked=F.dfsOnly;
+ $('sport').onchange=e=>{F.sport=e.target.value;F.game='';saveF();added.clear();loadGames()};
+ $('game').onchange=e=>{F.game=e.target.value;saveF();added.clear();loadProps()};
+ $('q').oninput=()=>{SHOWN=40;renderProps()};
+ $('dfsOnly').onchange=e=>{F.dfsOnly=e.target.checked;saveF();SHOWN=40;renderProps()};
+ $('props').onclick=e=>{if(e.target.id==='morebtn'){SHOWN+=40;renderProps();return}const b=e.target.closest('[data-pi]');if(b)addProp(+b.dataset.pi,b.dataset.side)};
+ $('codeBtn').onclick=()=>{F.code=$('code').value.trim();saveF();$('coderow').hidden=true;loadGames()};
+ api('/api/ping').then(d=>{if(d.needsCode)$('coderow').hidden=false}).catch(()=>{});
+ loadGames();
+}
+
+$('stake').value=S.defaultStake;
+renderSets();renderLegs();showPre();showSer();updPromo();calc();initFinder();
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
