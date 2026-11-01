@@ -79,11 +79,33 @@ test('pickBest keeps DFS lines with exact multi-book odds above the threshold', 
   assert.equal(pickBest(rows, game, { minProb: 0.5, minBooks: 4 }).length, 0);
 });
 
+const row = (o = {}) => ({ player: 'X', market: 'player_points', label: 'Pts', line: 10.5, apps: ['Underdog'],
+  offers: { over: ['Underdog'], under: ['Underdog'] }, over: 0.41, under: 0.59, books: 3, bookLine: null, ...o });
+const G = { label: 'g', start: 's' };
+
 test('pickBest chooses the under when it is the stronger side', () => {
-  const rows = [{ player: 'X', market: 'm', label: 'Pts', line: 10.5, apps: ['Underdog'], over: 0.41, under: 0.59, books: 3, bookLine: null }];
-  const [p] = pickBest(rows, { label: 'g', start: 's' });
+  const [p] = pickBest([row()], G);
   assert.equal(p.side, 'under');
   assert.equal(p.prob, 0.59);
+});
+
+test('pickBest never suggests a side the app does not offer', () => {
+  // App only offers More: the strong under is unusable, the weak over is below threshold
+  assert.equal(pickBest([row({ offers: { over: ['PrizePicks'], under: [] } })], G).length, 0);
+  // Offered side strong enough: kept, and apps lists only who offers that side
+  const [p] = pickBest([row({ over: 0.6, under: 0.4, apps: ['Pick6', 'Underdog'], offers: { over: ['Pick6'], under: ['Underdog'] } })], G);
+  assert.equal(p.side, 'over');
+  assert.deepEqual(p.apps, ['Pick6']);
+});
+
+test('pickBest drops TD-type props and lopsided 75%+ lines', () => {
+  assert.equal(pickBest([row({ market: 'player_anytime_td', line: 0.5, over: 0.05, under: 0.95 })], G).length, 0);
+  assert.equal(pickBest([row({ over: 0.2, under: 0.8 })], G).length, 0);
+});
+
+test('buildProps records which sides each DFS app lists', () => {
+  const r = buildProps(SAMPLE_ODDS, L).find(x => x.player === 'Jalen Hurts' && x.market === 'player_pass_yds');
+  assert.deepEqual(r.offers, { over: ['PrizePicks', 'Underdog'], under: ['PrizePicks', 'Underdog'] });
 });
 
 test('trimEvents keeps live and next-4-day games, sorted', () => {

@@ -85,6 +85,7 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 .prop b{display:block;font-size:15px}.prop .pl{font-size:14px}.prop small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
 .pb{display:flex;gap:5px}.pb button{min-width:62px;padding:7px 6px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--tx);font:inherit;font-size:13px;line-height:1.2}
 .pb button span{display:block;font-family:var(--fh);font-size:16px;font-weight:700}
+.pb button:disabled{opacity:.35}
 .pb button.added{background:var(--ac);color:var(--onac,#fff);border-color:var(--ac)}
 .more{width:100%;margin-top:8px}
 #coderow[hidden]{display:none}
@@ -147,7 +148,8 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 <section id="p5" hidden>
   <div class="card">
     <h2>Best lines</h2>
-    <div class="mut">PrizePicks and Underdog lines where the sportsbooks' fair odds are strongest. A line only shows if 2+ books price that exact line and one side hits 54% or more. Tap a side to add it to your slip.</div>
+    <div class="mut">DFS lines where the sportsbooks' fair odds are strongest. A line shows only if the app lets you take that side, 2+ books price the exact line, and that side is 54–75% to hit. TD and other yes/no props are left out. Tap a pick to add it to your slip.</div>
+    <div class="mut" id="bestApps" style="margin-top:6px"></div>
     <div class="chips" id="bestSports"></div>
     <div class="msg mut" id="bestStatus"></div>
     <div class="props" id="best"></div>
@@ -457,7 +459,8 @@ function renderProps(){
  $('props').innerHTML=list.slice(0,SHOWN).map(([p,i])=>{
   const yn=p.line==null;
   const src=p.books?`fair from ${p.books} book${p.books>1?'s':''}${p.bookLine!=null?` (books at ${p.bookLine})`:''}`:'no book odds yet';
-  const btn=side=>`<button data-pi="${i}" data-side="${side}" class="${added.has(i+side)?'added':''}">${yn?(side==='over'?'Yes':'No'):(side==='over'?'Over':'Under')}<span>${pc(p,side)}</span></button>`;
+  const off=side=>p.apps.length&&!((p.offers&&p.offers[side])||[]).length;
+  const btn=side=>`<button data-pi="${i}" data-side="${side}" class="${added.has(i+side)?'added':''}"${off(side)?' disabled title="Not offered on the apps"':''}>${yn?(side==='over'?'Yes':'No'):(side==='over'?'Over':'Under')}<span>${pc(p,side)}</span></button>`;
   return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${p.apps.length?esc(p.apps.join(' · '))+' · ':''}${src}</small></div><div class="pb">${btn('over')}${btn('under')}</div></div>`;
  }).join('')+(list.length>SHOWN?`<button class="sec more" id="morebtn">Show more (${list.length-SHOWN})</button>`:'');
 }
@@ -478,7 +481,9 @@ function addLegFrom(p,side,prob,note){
  renderLegs();calc();return leg;
 }
 function bestStatus(t,bad){const s=$('bestStatus');s.className='msg '+(bad?'no':'mut');s.textContent=t}
+const FOOTBALL=new Set(['football_nfl','football_ncaaf']);
 function renderBestChips(){
+ $('bestApps').innerHTML=FOOTBALL.has(F.bestSport)?'<b>Football is Pick6 only.</b> The odds feed doesn’t carry PrizePicks or Underdog football, so these are DraftKings Pick6 lines. They may not match PrizePicks.':'Apps covered: PrizePicks, Underdog and Pick6. Each pick shows which app has it.';
  $('bestSports').innerHTML=SPORT_LIST.map(s=>`<button data-bs="${s[0]}" class="${F.bestSport===s[0]?'on':''}">${s[1]}</button>`).join('');
 }
 async function loadBest(){
@@ -498,7 +503,7 @@ function renderBest(d){
  $('best').innerHTML=d.picks.map((p,i)=>{
   const yn=p.line==null,sideTxt=yn?(p.side==='over'?'Yes':'No'):(p.side==='over'?'Over':'Under');
   const k=d.sport+'|'+i;
-  return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${esc(p.game)} · ${esc(fmtTime(p.start))}<br>${esc(p.apps.join(' · '))} · ${p.books} books</small></div><div class="pb"><button data-bi="${i}" class="${bestAdded.has(k)?'added':''}">${sideTxt}<span>${Math.round(p.prob*100)}%</span></button></div></div>`;
+  return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${esc(p.game)} · ${esc(fmtTime(p.start))}<br><b>On ${esc(p.apps.join(', '))}</b> · ${p.books} books</small></div><div class="pb"><button data-bi="${i}" class="${bestAdded.has(k)?'added':''}">${sideTxt}<span>${Math.round(p.prob*100)}%</span></button></div></div>`;
  }).join('');
 }
 function initBest(){
