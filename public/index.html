@@ -461,26 +461,35 @@ function renderProps(){
   const yn=p.line==null;
   const src=p.books?`fair from ${p.books} book${p.books>1?'s':''}${p.bookLine!=null?` (books at ${p.bookLine})`:''}`:'no book odds yet';
   const off=side=>p.apps.length&&!((p.offers&&p.offers[side])||[]).length;
-  const btn=side=>`<button data-pi="${i}" data-side="${side}" class="${added.has(i+side)?'added':''}"${off(side)?' disabled title="Not offered on the apps"':''}>${yn?(side==='over'?'Yes':'No'):(side==='over'?'Over':'Under')}<span>${pc(p,side)}</span></button>`;
+  const btn=side=>`<button data-pi="${i}" data-side="${side}" class="${sideOn(p,side)?'added':''}"${off(side)?' disabled title="Not offered on the apps"':''}>${yn?(side==='over'?'Yes':'No'):(side==='over'?'Over':'Under')}<span>${pc(p,side)}</span></button>`;
   return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${p.apps.length?esc(p.apps.join(' · '))+' · ':''}${src}</small></div><div class="pb">${btn('over')}${btn('under')}</div></div>`;
  }).join('')+(list.length>SHOWN?`<button class="sec more" id="morebtn">Show more (${list.length-SHOWN})</button>`:'');
+}
+/* slip toggling: tap a pick to add it, tap again to remove, tap the other side to swap */
+const propKey=p=>p.market+'|'+p.player+'|'+(p.line??'');
+const sideOn=(p,side)=>legs.some(l=>l.key===propKey(p)+'#'+side);
+function toggleLeg(p,side,prob,note){
+ const base=propKey(p),k=base+'#'+side,i=legs.findIndex(l=>l.key&&l.key.startsWith(base+'#'));
+ let removed=false;
+ if(i>=0){removed=legs[i].key===k;legs.splice(i,1)}
+ let leg=null;
+ if(!removed){
+  leg={name:propName(p,side),p:Math.min(99,Math.max(1,prob)),note,key:k};
+  if(legs.length===1&&!legs[0].name&&legs[0].p===50)legs=[leg];else legs.push(leg);
+ }
+ if(!legs.length)legs.push({name:'',p:50,note:''});
+ renderLegs();calc();
+ const n=legs.filter(l=>l.name).length,cnt=`${n} leg${n===1?'':'s'}`;
+ return leg?`Added ${leg.name}. ${cnt} in the slip.`:`Removed ${propName(p,side)}. ${cnt} in the slip.`;
 }
 function addProp(i,side){
  const p=PROPS[i];if(!p)return;
  const prob=p.over==null?50:(side==='over'?Math.round(p.over*100):100-Math.round(p.over*100));
  const note=p.books?`Fair ${prob}% from ${p.books} book${p.books>1?'s':''}${p.bookLine!=null?`, priced at ${p.bookLine} not ${p.line}, so adjust`:''}`:'No book odds; 50% placeholder, set your own';
- const leg={name:propName(p,side),p:Math.min(99,Math.max(1,prob)),note};
- if(legs.length===1&&!legs[0].name&&legs[0].p===50)legs=[leg];else legs.push(leg);
- added.add(i+side);renderLegs();calc();renderProps();updTabCount();
- setStatus(`Added ${leg.name}. ${legs.length} leg${legs.length>1?'s':''} in the slip below.`);
+ setStatus(toggleLeg(p,side,prob,note));
 }
 /* best lines tab */
-const BEST={};let bestAdded=new Set();
-function addLegFrom(p,side,prob,note){
- const leg={name:propName(p,side),p:Math.min(99,Math.max(1,prob)),note};
- if(legs.length===1&&!legs[0].name&&legs[0].p===50)legs=[leg];else legs.push(leg);
- renderLegs();calc();return leg;
-}
+const BEST={};
 function bestStatus(t,bad){const s=$('bestStatus');s.className='msg '+(bad?'no':'mut');s.textContent=t}
 const FOOTBALL=new Set(['football_nfl','football_ncaaf']);
 function renderBestChips(){
@@ -504,8 +513,7 @@ function renderBest(d){
  if(!d.picks.length){$('best').innerHTML=`<div class="mut">${d.games?'Nothing clears 54% right now. Lines move, so check back closer to game time.':'No games in this window.'}</div>`;return}
  $('best').innerHTML=d.picks.map((p,i)=>{
   const yn=p.line==null,sideTxt=yn?(p.side==='over'?'Yes':'No'):(p.side==='over'?'Over':'Under');
-  const k=d.sport+'|'+i;
-  return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${esc(p.game)} · ${esc(fmtTime(p.start))}<br><b>On ${esc(p.apps.join(', '))}</b> · ${p.books} books</small></div><div class="pb"><button data-bi="${i}" class="${bestAdded.has(k)?'added':''}">${sideTxt}<span>${Math.round(p.prob*100)}%</span></button></div></div>`;
+    return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${esc(p.game)} · ${esc(fmtTime(p.start))}<br><b>On ${esc(p.apps.join(', '))}</b> · ${p.books} books</small></div><div class="pb"><button data-bi="${i}" class="${sideOn(p,p.side)?'added':''}">${sideTxt}<span>${Math.round(p.prob*100)}%</span></button></div></div>`;
  }).join('');
 }
 function initBest(){
@@ -514,22 +522,22 @@ function initBest(){
  $('best').onclick=e=>{
   const b=e.target.closest('[data-bi]');if(!b)return;
   const d=BEST[F.bestSport],p=d&&d.picks[+b.dataset.bi];if(!p)return;
-  const k=d.sport+'|'+b.dataset.bi;if(bestAdded.has(k))return;
   const prob=Math.round(p.prob*100);
-  const leg=addLegFrom(p,p.side,prob,`Fair ${prob}% from ${p.books} books · ${p.game}`);
-  bestAdded.add(k);b.classList.add('added');
-  bestStatus(`Added ${leg.name}. ${legs.length} leg${legs.length>1?'s':''} in your slip on the Calculator tab.`);
-  updTabCount();
+  bestStatus(toggleLeg(p,p.side,prob,`Fair ${prob}% from ${p.books} books · ${p.game}`).replace('in the slip','in your slip on the Calculator tab'));
  };
 }
-function updTabCount(){const n=legs.filter(l=>l.name).length;$('tabCalc').textContent=n?`Calculator (${n})`:'Calculator'}
+function updTabCount(){
+ const n=legs.filter(l=>l.name).length;$('tabCalc').textContent=n?`Calculator (${n})`:'Calculator';
+ document.querySelectorAll('#props [data-pi]').forEach(b=>{const p=PROPS[+b.dataset.pi];if(p)b.classList.toggle('added',sideOn(p,b.dataset.side))});
+ const d=BEST[F.bestSport];if(d)document.querySelectorAll('#best [data-bi]').forEach(b=>{const p=d.picks[+b.dataset.bi];if(p)b.classList.toggle('added',sideOn(p,p.side))});
+}
 
 function initFinder(){
  $('sport').innerHTML=SPORT_LIST.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join('');
  if(!SPORT_LIST.some(s=>s[0]===F.sport))F.sport='football_nfl';
  $('sport').value=F.sport;$('dfsOnly').checked=F.dfsOnly;
- $('sport').onchange=e=>{F.sport=e.target.value;F.game='';saveF();added.clear();loadGames()};
- $('game').onchange=e=>{F.game=e.target.value;saveF();added.clear();loadProps()};
+ $('sport').onchange=e=>{F.sport=e.target.value;F.game='';saveF();loadGames()};
+ $('game').onchange=e=>{F.game=e.target.value;saveF();loadProps()};
  $('q').oninput=()=>{SHOWN=40;renderProps()};
  $('dfsOnly').onchange=e=>{F.dfsOnly=e.target.checked;saveF();SHOWN=40;renderProps()};
  $('props').onclick=e=>{if(e.target.id==='morebtn'){SHOWN+=40;renderProps();return}const b=e.target.closest('[data-pi]');if(b)addProp(+b.dataset.pi,b.dataset.side)};
