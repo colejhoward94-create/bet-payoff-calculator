@@ -9,7 +9,14 @@ const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, opts) => {
   const u = new URL(url);
   if (u.hostname !== 'api.prop-line.com') return realFetch(url, opts);
-  const body = u.pathname.endsWith('/events') ? SAMPLE_EVENTS.map(e => ({ ...e, commence_time: new Date(Date.now() + 3600e3 * (e.id - 100)).toISOString() })) : SAMPLE_ODDS;
+  let body = u.pathname.endsWith('/events') ? SAMPLE_EVENTS.map(e => ({ ...e, commence_time: new Date(Date.now() + 3600e3 * (e.id - 100)).toISOString() })) : SAMPLE_ODDS;
+  if (u.pathname.includes('/events/102/')) {
+    // second game: make Hurts a strong over so Best Lines has something to show
+    body = JSON.parse(JSON.stringify(SAMPLE_ODDS));
+    body.home_team = 'Kansas City Chiefs'; body.away_team = 'Buffalo Bills';
+    for (const bk of body.bookmakers) for (const m of bk.markets) for (const o of m.outcomes)
+      if (o.description === 'Jalen Hurts' && !(bk.key in { prizepicks: 1, underdog: 1 })) o.price = o.name === 'Over' ? -165 : 135;
+  }
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 };
 
@@ -17,6 +24,7 @@ const routes = {
   '/api/events': (await import('../api/events.js')).default,
   '/api/props': (await import('../api/props.js')).default,
   '/api/ping': (await import('../api/ping.js')).default,
+  '/api/best': (await import('../api/best.js')).default,
 };
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 const root = new URL('../public/', import.meta.url).pathname;

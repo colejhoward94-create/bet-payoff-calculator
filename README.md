@@ -5,6 +5,7 @@ Pick a game, tap a player prop, and the app fills in the **fair hit chance** fro
 - Lines come from the [PropLine](https://prop-line.com) API (free tier: 1,000 requests/day).
 - Fair odds average every sportsbook quoting the exact line and count Pinnacle double. PrizePicks, Underdog and Pick6 lines are matched to those books, using standard lines only (no goblins, demons or boosted picks).
 - Responses are cached for a few minutes on Vercel's CDN, so a group shares one request per game instead of one per person.
+- **Best Lines tab:** scans upcoming games (NFL: next 7 days, most others: next 36 hours) and ranks PrizePicks/Underdog lines where 2+ books price the exact line and one side is 54%+. Cached for an hour, so a full scan costs ~15–20 requests per sport per hour at most.
 - Settings, presets and colors save on each phone.
 
 ## Deploy (one time)
@@ -29,6 +30,7 @@ public/sw.js               offline shell for the installed app
 public/manifest.webmanifest, icons/
 api/events.js              GET /api/events?sport=football_nfl
 api/props.js               GET /api/props?sport=football_nfl&event=<id>
+api/best.js                GET /api/best?sport=football_nfl (Best Lines scan)
 api/ping.js                passcode / setup check
 lib/odds.js                de-vig + line matching (pure, tested)
 lib/upstream.js            PropLine requests, caching, errors

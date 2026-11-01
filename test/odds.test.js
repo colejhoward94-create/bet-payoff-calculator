@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { americanToProb, buildProps, trimEvents, SPORTS } from '../lib/odds.js';
+import { americanToProb, buildProps, trimEvents, pickBest, SPORTS } from '../lib/odds.js';
 import { SAMPLE_ODDS } from './sample.js';
 
 const L = SPORTS.football_nfl.markets;
@@ -63,6 +63,27 @@ test('skips period markets, unknown markets, suspended markets', () => {
 test('handles empty or malformed input', () => {
   assert.deepEqual(buildProps(null, L), []);
   assert.deepEqual(buildProps({ bookmakers: [{ key: 'x' }] }, L), []);
+});
+
+test('pickBest keeps DFS lines with exact multi-book odds above the threshold', () => {
+  const rows = buildProps(SAMPLE_ODDS, L);
+  const game = { label: 'DAL @ PHI', start: '2026-11-01T21:25:00Z' };
+  // Hurts: 3 books at the exact PrizePicks line, fair over ~.508 -> passes at 0.5
+  const picks = pickBest(rows, game, { minProb: 0.5 });
+  assert.deepEqual(picks.map(p => p.player), ['Jalen Hurts']);
+  assert.equal(picks[0].side, 'over');
+  assert.equal(picks[0].game, 'DAL @ PHI');
+  // A.J. Brown excluded (books at a different line), book-only props excluded (no DFS app)
+  assert.equal(pickBest(rows, game, { minProb: 0.6 }).length, 0);
+  // minBooks filter
+  assert.equal(pickBest(rows, game, { minProb: 0.5, minBooks: 4 }).length, 0);
+});
+
+test('pickBest chooses the under when it is the stronger side', () => {
+  const rows = [{ player: 'X', market: 'm', label: 'Pts', line: 10.5, apps: ['Underdog'], over: 0.41, under: 0.59, books: 3, bookLine: null }];
+  const [p] = pickBest(rows, { label: 'g', start: 's' });
+  assert.equal(p.side, 'under');
+  assert.equal(p.prob, 0.59);
 });
 
 test('trimEvents keeps live and next-4-day games, sorted', () => {
