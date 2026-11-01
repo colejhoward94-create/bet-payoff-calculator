@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       .sort((a, b) => Date.parse(a.commence_time) - Date.parse(b.commence_time))
       .slice(0, maxGames);
 
-    const picks = [], feed = {};
+    const picks = [], feed = {}, matched = {};
     let scanned = 0, failed = 0;
     // A few at a time to stay under PropLine's per-minute burst limit.
     for (let i = 0; i < events.length; i += 4) {
@@ -31,7 +31,11 @@ export default async function handler(req, res) {
             markets: Object.keys(labels).join(','),
           });
           const game = { label: `${short(e.away_team)} @ ${short(e.home_team)}`, start: e.commence_time };
-          picks.push(...pickBest(buildProps(odds, labels), game));
+          const rows = buildProps(odds, labels);
+          // How many of each app's lines line up with 2+ sportsbooks at the exact line
+          for (const r of rows) if (r.line != null && r.bookLine == null && r.books >= 2)
+            for (const a of r.apps) matched[a] = (matched[a] || 0) + 1;
+          picks.push(...pickBest(rows, game));
           feedCounts(odds, labels, feed);
           scanned++;
         } catch (err) {
@@ -43,8 +47,8 @@ export default async function handler(req, res) {
     picks.sort((a, b) => b.prob - a.prob || b.books - a.books);
 
     send(res, 200, {
-      sport, window: label, games: events.length, scanned, failed, feed,
-      picks: picks.slice(0, 60),
+      sport, window: label, games: events.length, scanned, failed, feed, matched,
+      picks: picks.slice(0, 150),
       fetched: new Date().toISOString(),
     }, 3600);
   } catch (err) {

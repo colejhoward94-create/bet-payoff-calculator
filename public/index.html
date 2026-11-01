@@ -152,6 +152,7 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
     <div class="mut" id="bestApps" style="margin-top:6px"></div>
     <div class="chips" id="bestSports"></div>
     <div class="msg mut" id="bestStatus"></div>
+    <div class="chips" id="bestAppChips"></div>
     <div class="msg mut" id="bestFeed" style="font-size:12px"></div>
     <div class="props" id="best"></div>
     <div class="mut" style="margin-top:10px">Scans refresh about once an hour. These are the market's numbers, not a guarantee, and picks from the same game tend to move together.</div>
@@ -506,12 +507,17 @@ async function loadBest(){
   BEST[sp]=d;if(F.bestSport===sp)renderBest(d);
  }catch(err){bestStatus(/passcode/i.test(err.message)?'Enter the passcode on the Calculator tab first.':err.message,true)}
 }
+const APPS=['PrizePicks','Underdog','Pick6'];
 function renderBest(d){
+ if(!['All',...APPS].includes(F.bestApp))F.bestApp='All';
+ const per=a=>d.picks.filter(p=>p.apps.includes(a)).length;
+ $('bestAppChips').innerHTML=['All',...APPS].map(a=>`<button data-ba="${a}" class="${F.bestApp===a?'on':''}">${a} (${a==='All'?d.picks.length:per(a)})</button>`).join('');
+ const shown=d.picks.map((p,i)=>[p,i]).filter(([p])=>F.bestApp==='All'||p.apps.includes(F.bestApp));
  const t=new Date(d.fetched),mins=Math.max(0,Math.round((Date.now()-t)/60000));
- const fd=d.feed||{};$('bestFeed').textContent='In the odds feed for these games: '+['PrizePicks','Underdog','Pick6'].map(a=>`${a} ${fd[a]?fd[a].standard:0}${fd[a]&&fd[a].lines>fd[a].standard?` (+${fd[a].lines-fd[a].standard} alt)`:''}`).join(' · ')+' lines.';
+ const fd=d.feed||{},mt=d.matched||{};$('bestFeed').innerHTML='Standard lines in the feed: '+APPS.map(a=>`${a} ${fd[a]?fd[a].standard:0}`).join(' · ')+'<br>Matched to 2+ sportsbooks at the same line: '+APPS.map(a=>`${a} ${mt[a]||0}`).join(' · ');
  bestStatus(`${d.window}: ${d.picks.length} line${d.picks.length===1?'':'s'} from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}${d.failed?` (${d.failed} game${d.failed>1?'s':''} couldn’t load)`:''}.`);
- if(!d.picks.length){$('best').innerHTML=`<div class="mut">${d.games?'Nothing clears 54% right now. Lines move, so check back closer to game time.':'No games in this window.'}</div>`;return}
- $('best').innerHTML=d.picks.map((p,i)=>{
+ if(!shown.length){$('best').innerHTML=`<div class="mut">${!d.games?'No games in this window.':F.bestApp!=='All'?`Nothing on ${F.bestApp} clears 54% right now.`:'Nothing clears 54% right now. Lines move, so check back closer to game time.'}</div>`;return}
+ $('best').innerHTML=shown.slice(0,60).map(([p,i])=>{
   const yn=p.line==null,sideTxt=yn?(p.side==='over'?'Yes':'No'):(p.side==='over'?'Over':'Under');
     return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${esc(p.game)} · ${esc(fmtTime(p.start))}<br><b>On ${esc(p.apps.join(', '))}</b> · ${p.books} books</small></div><div class="pb"><button data-bi="${i}" class="${sideOn(p,p.side)?'added':''}">${sideTxt}<span>${Math.round(p.prob*100)}%</span></button></div></div>`;
  }).join('');
@@ -519,6 +525,7 @@ function renderBest(d){
 function initBest(){
  if(!SPORT_LIST.some(s=>s[0]===F.bestSport))F.bestSport=F.sport||'football_nfl';
  $('bestSports').onclick=e=>{const b=e.target.closest('[data-bs]');if(!b)return;F.bestSport=b.dataset.bs;saveF();loadBest()};
+ $('bestAppChips').onclick=e=>{const b=e.target.closest('[data-ba]');if(!b)return;F.bestApp=b.dataset.ba;saveF();const d=BEST[F.bestSport];if(d)renderBest(d)};
  $('best').onclick=e=>{
   const b=e.target.closest('[data-bi]');if(!b)return;
   const d=BEST[F.bestSport],p=d&&d.picks[+b.dataset.bi];if(!p)return;
