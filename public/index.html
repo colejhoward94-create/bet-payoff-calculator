@@ -152,6 +152,7 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
     <div class="mut" id="bestApps" style="margin-top:6px"></div>
     <div class="chips" id="bestSports"></div>
     <div class="msg mut" id="bestStatus"></div>
+    <div class="msg mut" id="bestFeed" style="font-size:12px"></div>
     <div class="props" id="best"></div>
     <div class="mut" style="margin-top:10px">Scans refresh about once an hour. These are the market's numbers, not a guarantee, and picks from the same game tend to move together.</div>
   </div>
@@ -498,6 +499,7 @@ async function loadBest(){
 }
 function renderBest(d){
  const t=new Date(d.fetched),mins=Math.max(0,Math.round((Date.now()-t)/60000));
+ const fd=d.feed||{};$('bestFeed').textContent='In the odds feed for these games: '+['PrizePicks','Underdog','Pick6'].map(a=>`${a} ${fd[a]?fd[a].standard:0}${fd[a]&&fd[a].lines>fd[a].standard?` (+${fd[a].lines-fd[a].standard} alt)`:''}`).join(' · ')+' lines.';
  bestStatus(`${d.window}: ${d.picks.length} line${d.picks.length===1?'':'s'} from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}${d.failed?` (${d.failed} game${d.failed>1?'s':''} couldn’t load)`:''}.`);
  if(!d.picks.length){$('best').innerHTML=`<div class="mut">${d.games?'Nothing clears 54% right now. Lines move, so check back closer to game time.':'No games in this window.'}</div>`;return}
  $('best').innerHTML=d.picks.map((p,i)=>{

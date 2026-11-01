@@ -2,7 +2,7 @@
 //
 // One request per game, so results are cached on Vercel's CDN for an hour:
 // a whole group checking all day costs ~24 scans per sport, not one per view.
-import { SPORTS, SCAN, buildProps, pickBest } from '../lib/odds.js';
+import { SPORTS, SCAN, buildProps, pickBest, feedCounts } from '../lib/odds.js';
 import { propline, checkPasscode, send, fail, HttpError } from '../lib/upstream.js';
 
 export const config = { maxDuration: 60 };
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       .sort((a, b) => Date.parse(a.commence_time) - Date.parse(b.commence_time))
       .slice(0, maxGames);
 
-    const picks = [];
+    const picks = [], feed = {};
     let scanned = 0, failed = 0;
     // A few at a time to stay under PropLine's per-minute burst limit.
     for (let i = 0; i < events.length; i += 4) {
@@ -32,6 +32,7 @@ export default async function handler(req, res) {
           });
           const game = { label: `${short(e.away_team)} @ ${short(e.home_team)}`, start: e.commence_time };
           picks.push(...pickBest(buildProps(odds, labels), game));
+          feedCounts(odds, labels, feed);
           scanned++;
         } catch (err) {
           if (err.status === 429) throw err; // out of daily requests: stop
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
     picks.sort((a, b) => b.prob - a.prob || b.books - a.books);
 
     send(res, 200, {
-      sport, window: label, games: events.length, scanned, failed,
+      sport, window: label, games: events.length, scanned, failed, feed,
       picks: picks.slice(0, 60),
       fetched: new Date().toISOString(),
     }, 3600);
