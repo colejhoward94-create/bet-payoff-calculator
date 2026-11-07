@@ -351,7 +351,7 @@ $('serious').oninput=e=>{S.serious=parseFloat(e.target.value)||0;save();showSer(
 
 /* legs */
 function renderLegs(){
- $('legs').innerHTML=legs.map((l,i)=>`<div class="leg"><input data-i="${i}" data-f="name" value="${esc(l.name)}" placeholder="Player, stat, line" aria-label="Leg ${i+1}"><label class="pc"><input type="number" min="1" max="99" step="1" data-i="${i}" data-f="p" value="${l.p}" aria-label="Hit chance %"><span>%</span></label><button class="x" data-del="${i}" aria-label="Remove leg">×</button>${l.note?`<div class="note">${esc(l.note)}</div>`:''}<div class="mt" role="group" aria-label="Matchup for leg ${i+1}"><span>Matchup (optional)</span>${[[0,'Unknown'],[1,'Favorable'],[-1,'Unfavorable']].map(o=>`<button data-i="${i}" data-m="${o[0]}" class="${(l.m||0)===o[0]?'on':''}">${o[1]}</button>`).join('')}</div></div>`).join('');
+ $('legs').innerHTML=legs.map((l,i)=>`<div class="leg"><input data-i="${i}" data-f="name" value="${esc(l.name)}" placeholder="Player, stat, line" aria-label="Leg ${i+1}"><label class="pc"><input type="number" min="1" max="99" step="0.1" data-i="${i}" data-f="p" value="${l.p}" aria-label="Hit chance %"><span>%</span></label><button class="x" data-del="${i}" aria-label="Remove leg">×</button>${l.note?`<div class="note">${esc(l.note)}</div>`:''}<div class="mt" role="group" aria-label="Matchup for leg ${i+1}"><span>Matchup (optional)</span>${[[0,'Unknown'],[1,'Favorable'],[-1,'Unfavorable']].map(o=>`<button data-i="${i}" data-m="${o[0]}" class="${(l.m||0)===o[0]?'on':''}">${o[1]}</button>`).join('')}</div></div>`).join('');
 }
 $('legs').addEventListener('input',e=>{const i=e.target.dataset.i;if(i==null)return;const f=e.target.dataset.f;legs[i][f]=f==='p'?(parseFloat(e.target.value)||0):e.target.value;calc()});
 $('legs').addEventListener('click',e=>{const mb=e.target.closest('[data-m]');if(mb){legs[+mb.dataset.i].m=+mb.dataset.m;renderLegs();calc();return}const d=e.target.dataset.del;if(d==null)return;legs.splice(+d,1);if(!legs.length)legs.push({name:'',p:50,note:''});renderLegs();calc()});
@@ -636,7 +636,7 @@ async function loadLineup(){
  catch(err){lnStatus(esc(/passcode/i.test(err.message)?'Enter the passcode on the Calculator tab first.':err.message),true)}
 }
 function renderLineup(d){
- const r=Lineup.buildOptions(d.picks,F.lnApp,{maxPerGame:F.lnPer,exclude:lnExclude});
+ const r=Lineup.buildOptions(d.picks,F.lnApp,{maxPerGame:F.lnPer,exclude:lnExclude,haircut:S.haircut});
  lnOpts=r.options;
  if(!lnOpts.length){
   $('lnOpts').innerHTML='';$('lnDetail').innerHTML='';
@@ -645,7 +645,8 @@ function renderLineup(d){
  }
  if(lnSel>=lnOpts.length)lnSel=0;
  const best=lnOpts[0],pctS=v=>(v>=0?'+':'−')+Math.abs(v*100).toFixed(1)+'%';
- lnStatus(best.ev>0?`Best lineup: <b>${best.name}</b> at <b class="ok">${pctS(best.ev)} EV</b>, from ${r.pool} ${F.lnApp} picks.`:`No lineup is +EV right now. The closest is ${best.name} at <b class="no">${pctS(best.ev)}</b>. That’s the expected cost of playing it.`);
+ const hc=S.haircut>0?`<br><span style="font-size:12px">EV includes your ${S.haircut}% estimate haircut from Settings, same as the calculator. <a href="#" id="lnHc" style="color:inherit">Change it</a></span>`:'<br><span style="font-size:12px">EV uses the raw sportsbook odds (your estimate haircut is 0%).</span>';
+ lnStatus((best.ev>0?`Best lineup: <b>${best.name}</b> at <b class="ok">${pctS(best.ev)} EV</b>, from ${r.pool} ${F.lnApp} picks.`:`No lineup is +EV right now. The closest is ${best.name} at <b class="no">${pctS(best.ev)}</b>. That’s the expected cost of playing it.`)+hc);
  const showN=lnAll?lnOpts.length:Math.max(3,lnSel+1);
  $('lnOpts').innerHTML=lnOpts.slice(0,showN).map((o,i)=>`<button class="opt${i===lnSel?' on':''}" data-lo="${i}"><span>${esc(o.name)}<small style="display:block">cashes ${(o.cash*100).toFixed(1)}% · all hit pays ${Math.max(...Object.values(o.table))}x</small></span><span class="ev ${o.ev>0?'pos':'neg'}">${pctS(o.ev)}</span></button>`).join('')+(lnOpts.length>showN?`<button class="sec" id="lnMore">Show all ${lnOpts.length} lineup types</button>`:lnAll&&lnOpts.length>3?`<button class="sec" id="lnMore">Show top 3</button>`:'');
  const o=lnOpts[lnSel];
@@ -662,17 +663,18 @@ function initLineup(){
  $('lnApp').onchange=e=>{F.lnApp=e.target.value;saveF();lnSel=0;const d=BEST[F.bestSport];if(d)renderLineup(d)};
  $('lnPer').onchange=e=>{F.lnPer=+e.target.value;saveF();lnSel=0;const d=BEST[F.bestSport];if(d)renderLineup(d)};
  $('lnOpts').onclick=e=>{if(e.target.id==='lnMore'){lnAll=!lnAll;renderLineup(BEST[F.bestSport]);return}const b=e.target.closest('[data-lo]');if(!b)return;lnSel=+b.dataset.lo;renderLineup(BEST[F.bestSport])};
+ $('lnStatus').onclick=e=>{if(e.target.id==='lnHc'){e.preventDefault();tab(2);setTimeout(()=>{const el=$('s_haircut');if(el){el.scrollIntoView({block:'center'});el.focus()}},50)}};
  $('lnDetail').onclick=e=>{
   const x=e.target.closest('[data-lx]');
   if(x){lnExclude.add(x.dataset.lx);const keep=lnOpts[lnSel];renderLineup(BEST[F.bestSport]);const j=lnOpts.findIndex(o=>o.name===keep.name);if(j>=0&&j!==lnSel){lnSel=j;renderLineup(BEST[F.bestSport])}return}
   if(e.target.id==='lnReset'){lnExclude.clear();renderLineup(BEST[F.bestSport]);return}
   if(e.target.id==='lnLoad'){
    const o=lnOpts[lnSel];if(!o)return;
-   legs=o.legs.map(p=>{const pr=Math.round(p.prob*100);return{name:propName(p,p.side),p:pr,note:`Fair ${pr}% from ${p.books} books · ${p.game}`,key:propKey(p)+'#'+p.side}});
+   legs=o.legs.map(p=>{const pr=Math.round(p.prob*1000)/10;return{name:propName(p,p.side),p:pr,note:`Fair ${pr}% from ${p.books} books · ${p.game}`,key:propKey(p)+'#'+p.side}});
    $('tiers').value=Object.entries(o.table).sort((a,b)=>b[0]-a[0]).map(([k,v])=>k+':'+v).join(', ');
    $('bonus').checked=false;$('tiers2').value='';updPromo();
    renderLegs();calc();tab(1);
-   setStatus(`Loaded ${o.name} (${o.app}) with its payout.${S.haircut>0?` The verdict below trims every hit chance by your ${S.haircut}% estimate haircut (Settings), so its EV reads lower than the builder’s.`:''}`);
+   setStatus(`Loaded ${o.name} (${o.app}) with its payout. The verdict below uses the same ${S.haircut}% haircut as the builder.`);
   }
  };
 }

@@ -71,14 +71,17 @@ export function bestLineup(pool, k, maxPerGame = 2) {
  * @param picks  Best Lines picks ({player, market, line, label, side, prob, apps, game, ...})
  * @param app    'PrizePicks' | 'Underdog'
  */
-export function buildOptions(picks, app, { maxPerGame = 2, exclude = new Set() } = {}) {
+// haircut: the calculator's "estimate haircut" (relative %), applied to every leg's
+// hit chance so the builder and the calculator verdict always agree.
+export function buildOptions(picks, app, { maxPerGame = 2, exclude = new Set(), haircut = 0 } = {}) {
+  const cut = 1 - (Number(haircut) || 0) / 100;
   const pool = picks.filter(p => p.apps.includes(app) && !exclude.has(pickKey(p)));
   const opts = [];
   for (const type of ['power', 'flex']) {
     for (const [size, table] of Object.entries(PAYOUTS[app][type])) {
       const legs = bestLineup(pool, +size, maxPerGame);
       if (!legs) continue;
-      opts.push({ app, type, size: +size, name: `${size}-pick ${ENTRY_NAME[app][type]}`, table, legs, ...lineupStats(legs.map(l => l.prob), table) });
+      opts.push({ app, type, size: +size, name: `${size}-pick ${ENTRY_NAME[app][type]}`, table, legs, ...lineupStats(legs.map(l => l.prob * cut), table) });
     }
   }
   opts.sort((a, b) => b.ev - a.ev);

@@ -61,3 +61,12 @@ test('buildOptions filters by app, honors excludes, sorts by EV', () => {
   // Underdog has no 2-pick flex
   assert.ok(!buildOptions(picks, 'Underdog').options.some(o => o.type === 'flex' && o.size === 2));
 });
+
+test('haircut lowers EV the same way the calculator does', () => {
+  const picks = ['A', 'B', 'C', 'D', 'E'].map((n, i) => pick(n, 0.57, 'G' + i));
+  const raw = buildOptions(picks, 'PrizePicks').options.find(o => o.name === '5-pick Power');
+  const cut = buildOptions(picks, 'PrizePicks', { haircut: 5 }).options.find(o => o.name === '5-pick Power');
+  near(raw.ev, Math.pow(0.57, 5) * 20 - 1);
+  near(cut.ev, Math.pow(0.57 * 0.95, 5) * 20 - 1);
+  assert.ok(raw.ev > 0 && cut.ev < 0);
+});
