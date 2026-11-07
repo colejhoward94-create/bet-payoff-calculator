@@ -15,7 +15,9 @@ globalThis.fetch = async (url, opts) => {
   } else if (process.env.RICH && u.pathname.includes('/odds')) {
     // 6 players per game; books lean over by a seeded amount so some clear 54%
     const id = +u.pathname.split('/events/')[1].split('/')[0];
-    const players = Array.from({ length: 6 }, (_, i) => `Player ${id}-${i}`);
+    const sp = u.pathname.split('/sports/')[1].split('/')[0].split('_')[1];
+    const MK = sp === 'nhl' ? 'player_shots_on_goal' : 'player_points';
+    const players = Array.from({ length: 6 }, (_, i) => `${sp} Player ${id}-${i}`);
     const lean = (i) => [-185, -160, -140, -125, -110, -105][i];
     const ou = (pl, i, price) => [{ name: 'Over', description: pl, point: 20.5, price }, { name: 'Under', description: pl, point: 20.5, price: Math.round(-price * 0.8) }];
     const H = 'Home ' + id, A = 'Away ' + id;
@@ -28,8 +30,8 @@ globalThis.fetch = async (url, opts) => {
         { key: 'totals', line_type: 'main', outcomes: [{ name: 'Over', point: 220.5, price: -110 }, { name: 'Under', point: 220.5, price: -110 }] },
       ];
     };
-    const book = key => ({ key, title: key[0].toUpperCase() + key.slice(1), markets: [{ key: 'player_points', outcomes: players.flatMap((pl, i) => ou(pl, i, lean((i + id) % 6))) }, ...gl(key)] });
-    const dfs = (key, extra) => ({ key, markets: [{ key: 'player_points', outcomes: players.flatMap(pl => [
+    const book = key => ({ key, title: key[0].toUpperCase() + key.slice(1), markets: [{ key: MK, outcomes: players.flatMap((pl, i) => ou(pl, i, lean((i + id) % 6))) }, ...gl(key)] });
+    const dfs = (key, extra) => ({ key, markets: [{ key: MK, outcomes: players.flatMap(pl => [
       { name: 'Over', description: pl, point: 20.5, price: 100, ...extra }, { name: 'Under', description: pl, point: 20.5, price: 100, ...extra }]) }] });
     body = { id, home_team: 'Home ' + id, away_team: 'Away ' + id, commence_time: new Date().toISOString(),
       bookmakers: [book('draftkings'), book('fanduel'), book('pinnacle'), dfs('prizepicks', { dfs_odds_type: 'standard' }), dfs('underdog', { payout_multiplier: 1 })] };

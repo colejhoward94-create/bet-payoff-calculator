@@ -170,7 +170,8 @@ body.typing .tabs{display:none}
   <div class="card">
     <h2>Lineup builder</h2>
     <div class="mut">Builds the highest-EV lineup from a sport’s Best Lines picks, using each app’s standard payouts, or a single or parlay from +EV game lines at your books. EV uses the sportsbooks’ fair odds and treats picks as independent.</div>
-    <div class="chips" id="lnSports"></div>
+    <div class="mut" style="margin-top:10px;font-size:13px">Tap one sport or several to mix them in one lineup.</div>
+    <div class="chips" id="lnSports" style="margin-top:6px"></div>
     <div class="row">
       <div><label class="f" for="lnApp">App</label><select id="lnApp"><option>PrizePicks</option><option>Underdog</option><option value="Sportsbook">Sportsbook (game lines)</option></select></div>
       <div><label class="f" for="lnPer">Max picks per game</label><select id="lnPer"><option value="1">1 (least correlated)</option><option value="2">2</option><option value="3">3</option></select></div>
@@ -644,16 +645,32 @@ async function getBest(sp){
 }
 let lnExclude=new Set(),lnSel=0,lnOpts=[],lnAll=false;
 function lnStatus(t,bad){const s=$('lnStatus');s.className='msg '+(bad?'no':'mut');s.innerHTML=t}
+// Lineup can mix sports: F.lnSports is the set of sports whose Best Lines picks feed the pool.
+let LN=null;
+const sportLabel=k=>(SPORT_LIST.find(s=>s[0]===k)||[k,k])[1];
+const lnSportList=()=>{let a=Array.isArray(F.lnSports)?F.lnSports.filter(k=>SPORT_LIST.some(s=>s[0]===k)):[];if(!a.length)a=[F.bestSport||'basketball_nba'];return a};
 async function loadLineup(){
  if(!['PrizePicks','Underdog','Sportsbook'].includes(F.lnApp))F.lnApp='PrizePicks';
  if(![1,2,3].includes(F.lnPer))F.lnPer=2;
  $('lnApp').value=F.lnApp;$('lnPer').value=String(F.lnPer);$('lnPer').parentElement.hidden=F.lnApp==='Sportsbook';
- $('lnSports').innerHTML=SPORT_LIST.map(s=>`<button data-ls="${s[0]}" class="${F.bestSport===s[0]?'on':''}">${s[1]}</button>`).join('');
- const sp=F.bestSport;
- if(!BEST[sp]){$('lnOpts').innerHTML='';$('lnDetail').innerHTML='';lnStatus('Scanning games… this can take 10–20 seconds the first time.')}
- try{const d=await getBest(sp);if(F.bestSport===sp)renderLineup(d)}
- catch(err){lnStatus(esc(/passcode/i.test(err.message)?'Enter the passcode on the Calculator tab first.':err.message),true)}
+ const sports=lnSportList(),want=sports.join(',');
+ $('lnSports').innerHTML=SPORT_LIST.map(s=>`<button data-ls="${s[0]}" class="${sports.includes(s[0])?'on':''}">${s[1]}</button>`).join('');
+ if(sports.some(k=>!BEST[k])){$('lnOpts').innerHTML='';$('lnDetail').innerHTML='';lnStatus(`Scanning ${sports.map(sportLabel).join(' + ')}… this can take 10–20 seconds the first time.`)}
+ const res=await Promise.allSettled(sports.map(getBest));
+ if(lnSportList().join(',')!==want)return; // selection changed while loading
+ const D={picks:[],gameLines:[],sports:[],failed:[]};
+ res.forEach((r,i)=>{
+  const lab=sportLabel(sports[i]);
+  if(r.status!=='fulfilled'){D.failed.push(lab);if(/passcode/i.test(r.reason&&r.reason.message))D.passcode=true;return}
+  D.sports.push(sports[i]);
+  // prefix the game with the sport so per-game limits never mix up two leagues
+  D.picks.push(...r.value.picks.map(p=>({...p,game:`${lab} · ${p.game}`})));
+  D.gameLines.push(...(r.value.gameLines||[]).map(g=>({...g,game:`${lab} · ${g.game}`})));
+ });
+ if(!D.sports.length){lnStatus(D.passcode?'Enter the passcode on the Calculator tab first.':`Couldn’t load ${D.failed.join(' + ')} right now.`,true);return}
+ LN=D;renderLineup(D);
 }
+const lnFrom=d=>{const n=d.sports.length;return (n>1?` across ${d.sports.map(sportLabel).join(' + ')}`:'')+(d.failed.length?` (${d.failed.join(' + ')} couldn’t load)`:'')};
 function renderLineup(d){
  $('lnPer').parentElement.hidden=F.lnApp==='Sportsbook';$('lnApp').parentElement.style.gridColumn=F.lnApp==='Sportsbook'?'1/-1':'';
  if(F.lnApp==='Sportsbook')return renderParlays(d);
@@ -661,13 +678,13 @@ function renderLineup(d){
  lnOpts=r.options;
  if(!lnOpts.length){
   $('lnOpts').innerHTML='';$('lnDetail').innerHTML='';
-  lnStatus(FOOTBALL.has(F.bestSport)?`No ${F.lnApp} picks for football. The odds feed only has Pick6 football, and Pick6 payouts vary by lineup.`:`Only ${r.pool} ${F.lnApp} pick${r.pool===1?'':'s'} clear 54% right now, which isn’t enough for a lineup with these limits. Try allowing more picks per game, another sport, or check back closer to game time.`);
+  lnStatus(d.sports.every(k=>FOOTBALL.has(k))?`No ${F.lnApp} picks for football. The odds feed only has Pick6 football, and Pick6 payouts vary by lineup.`:`Only ${r.pool} ${F.lnApp} pick${r.pool===1?'':'s'} clear 54% right now, which isn’t enough for a lineup with these limits. Try adding another sport, allowing more picks per game, or check back closer to game time.`+lnFrom(d));
   return;
  }
  if(lnSel>=lnOpts.length)lnSel=0;
  const best=lnOpts[0],pctS=v=>(v>=0?'+':'−')+Math.abs(v*100).toFixed(1)+'%';
  const hc=S.haircut>0?`<br><span style="font-size:12px">EV includes your ${S.haircut}% estimate haircut from Settings, same as the calculator. <a href="#" id="lnHc" style="color:inherit">Change it</a></span>`:'<br><span style="font-size:12px">EV uses the raw sportsbook odds (your estimate haircut is 0%).</span>';
- lnStatus((best.ev>0?`Best lineup: <b>${best.name}</b> at <b class="ok">${pctS(best.ev)} EV</b>, from ${r.pool} ${F.lnApp} picks.`:`No lineup is +EV right now. The closest is ${best.name} at <b class="no">${pctS(best.ev)}</b>. That’s the expected cost of playing it.`)+hc);
+ lnStatus((best.ev>0?`Best lineup: <b>${best.name}</b> at <b class="ok">${pctS(best.ev)} EV</b>, from ${r.pool} ${F.lnApp} picks${lnFrom(d)}.`:`No lineup is +EV right now. The closest is ${best.name} at <b class="no">${pctS(best.ev)}</b>. That’s the expected cost of playing it.`)+hc);
  const showN=lnAll?lnOpts.length:Math.max(3,lnSel+1);
  $('lnOpts').innerHTML=lnOpts.slice(0,showN).map((o,i)=>`<button class="opt${i===lnSel?' on':''}" data-lo="${i}"><span>${esc(o.name)}<small style="display:block">cashes ${(o.cash*100).toFixed(1)}% · all hit pays ${Math.max(...Object.values(o.table))}x</small></span><span class="ev ${o.ev>0?'pos':'neg'}">${pctS(o.ev)}</span></button>`).join('')+(lnOpts.length>showN?`<button class="sec" id="lnMore">Show all ${lnOpts.length} lineup types</button>`:lnAll&&lnOpts.length>3?`<button class="sec" id="lnMore">Show top 3</button>`:'');
  const o=lnOpts[lnSel];
@@ -693,7 +710,7 @@ function renderParlays(d){
   return;
  }
  if(lnSel>=lnOpts.length)lnSel=0;
- lnStatus(`${res.pool} game line${res.pool===1?'':'s'} +EV at your books. <b>Singles are the steadiest way to bet an edge.</b> Parlays multiply the edge and the swings, and always show a higher EV because every leg is +EV.`+hc);
+ lnStatus(`${res.pool} game line${res.pool===1?'':'s'} +EV at your books${lnFrom(d)}. <b>Singles are the steadiest way to bet an edge.</b> Parlays multiply the edge and the swings, and always show a higher EV because every leg is +EV.`+hc);
  $('lnOpts').innerHTML=lnOpts.map((o,i)=>`<button class="opt${i===lnSel?' on':''}" data-lo="${i}"><span>${esc(o.name)}<small style="display:block">hits ${(o.cash*100).toFixed(1)}% · pays ${o.table[o.size].toFixed(2)}x</small></span><span class="ev ${o.ev>0?'pos':'neg'}">${pctS(o.ev)}</span></button>`).join('');
  const o=lnOpts[lnSel];
  $('lnDetail').innerHTML=`<h2 style="margin-top:16px">${esc(o.name)} at your best books</h2>
@@ -704,16 +721,17 @@ function renderParlays(d){
  <div class="mut" style="margin-top:8px">One leg per game. Each leg is priced at the best of your books, so a parlay may need legs from different books. Check your book’s actual parlay payout before betting.</div>${books}`;
 }
 function initLineup(){
- $('lnSports').onclick=e=>{const b=e.target.closest('[data-ls]');if(!b)return;F.bestSport=b.dataset.ls;saveF();lnSel=0;loadLineup()};
- $('lnApp').onchange=e=>{F.lnApp=e.target.value;saveF();lnSel=0;const d=BEST[F.bestSport];if(d)renderLineup(d)};
- $('lnPer').onchange=e=>{F.lnPer=+e.target.value;saveF();lnSel=0;const d=BEST[F.bestSport];if(d)renderLineup(d)};
- $('lnOpts').onclick=e=>{if(e.target.id==='lnMore'){lnAll=!lnAll;renderLineup(BEST[F.bestSport]);return}const b=e.target.closest('[data-lo]');if(!b)return;lnSel=+b.dataset.lo;renderLineup(BEST[F.bestSport])};
+ $('lnSports').onclick=e=>{const b=e.target.closest('[data-ls]');if(!b)return;const k=b.dataset.ls,a=lnSportList();
+  F.lnSports=a.includes(k)?(a.length>1?a.filter(x=>x!==k):a):[...a,k];saveF();lnSel=0;loadLineup()};
+ $('lnApp').onchange=e=>{F.lnApp=e.target.value;saveF();lnSel=0;if(LN)renderLineup(LN)};
+ $('lnPer').onchange=e=>{F.lnPer=+e.target.value;saveF();lnSel=0;if(LN)renderLineup(LN)};
+ $('lnOpts').onclick=e=>{if(e.target.id==='lnMore'){lnAll=!lnAll;renderLineup(LN);return}const b=e.target.closest('[data-lo]');if(!b)return;lnSel=+b.dataset.lo;renderLineup(LN)};
  $('lnStatus').onclick=e=>{if(e.target.id==='lnHc'){e.preventDefault();tab(2);setTimeout(()=>{const el=$('s_haircut');if(el){el.scrollIntoView({block:'center'});el.focus()}},50)}};
  $('lnDetail').onclick=e=>{
   const x=e.target.closest('[data-lx]');
-  if(x){lnExclude.add(x.dataset.lx);const keep=lnOpts[lnSel];renderLineup(BEST[F.bestSport]);const j=lnOpts.findIndex(o=>o.name===keep.name);if(j>=0&&j!==lnSel){lnSel=j;renderLineup(BEST[F.bestSport])}return}
-  if(e.target.id==='lnReset'){lnExclude.clear();renderLineup(BEST[F.bestSport]);return}
-  const bk=e.target.closest('[data-bk]');if(bk){toggleBook(bk.dataset.bk);renderLineup(BEST[F.bestSport]);return}
+  if(x){lnExclude.add(x.dataset.lx);const keep=lnOpts[lnSel];renderLineup(LN);const j=lnOpts.findIndex(o=>o.name===keep.name);if(j>=0&&j!==lnSel){lnSel=j;renderLineup(LN)}return}
+  if(e.target.id==='lnReset'){lnExclude.clear();renderLineup(LN);return}
+  const bk=e.target.closest('[data-bk]');if(bk){toggleBook(bk.dataset.bk);renderLineup(LN);return}
   if(e.target.id==='lnLoad'){
    const o=lnOpts[lnSel];if(!o)return;
    if(o.app==='Sportsbook'){
