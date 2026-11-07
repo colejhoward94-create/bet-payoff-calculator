@@ -70,3 +70,20 @@ export const SAMPLE_EVENTS = [
   { id: 101, home_team: 'Philadelphia Eagles', away_team: 'Dallas Cowboys', commence_time: '2026-11-01T21:25:00Z' },
   { id: 102, home_team: 'Kansas City Chiefs', away_team: 'Buffalo Bills', commence_time: '2026-11-02T01:20:00Z' },
 ];
+
+// Game lines for the same Cowboys @ Eagles game
+SAMPLE_ODDS.bookmakers[0].markets.push(
+  { key: 'h2h', outcomes: [{ name: 'Dallas Cowboys', price: 150 }, { name: 'Philadelphia Eagles', price: -175 }] },
+  { key: 'spreads', line_type: 'main', outcomes: [{ name: 'Dallas Cowboys', point: 3.5, price: -110 }, { name: 'Philadelphia Eagles', point: -3.5, price: -110 }] },
+  { key: 'spreads', line_type: 'alternate', outcomes: [{ name: 'Dallas Cowboys', point: 6.5, price: -200 }, { name: 'Philadelphia Eagles', point: -6.5, price: 165 }] },
+  { key: 'totals', line_type: 'main', outcomes: [{ name: 'Over', point: 47.5, price: -105 }, { name: 'Under', point: 47.5, price: -115 }] },
+  { key: 'totals', team: 'Dallas Cowboys', outcomes: [{ name: 'Over', point: 21.5, price: -110 }, { name: 'Under', point: 21.5, price: -110 }] },
+);
+SAMPLE_ODDS.bookmakers[1].markets.push(
+  { key: 'h2h', outcomes: [{ name: 'Dallas Cowboys', price: 165 }, { name: 'Philadelphia Eagles', price: -190 }] },
+  { key: 'spreads', outcomes: [{ name: 'Dallas Cowboys', point: 3.5, price: -105 }, { name: 'Philadelphia Eagles', point: -3.5, price: -115 }] },
+  { key: 'totals', outcomes: [{ name: 'Over', point: 47.5, price: -110 }, { name: 'Under', point: 47.5, price: -110 }] },
+);
+SAMPLE_ODDS.bookmakers[2].markets.push(
+  { key: 'h2h', outcomes: [{ name: 'Dallas Cowboys', price: 155 }, { name: 'Philadelphia Eagles', price: -170 }] },
+);

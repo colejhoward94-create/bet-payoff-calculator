@@ -118,3 +118,38 @@ test('trimEvents keeps live and next-4-day games, sorted', () => {
   ];
   assert.deepEqual(trimEvents(ev, now).map(e => e.id), [1, 3]);
 });
+
+import { buildGameLines, decimalOf } from '../lib/odds.js';
+
+test('decimal odds', () => {
+  assert.equal(decimalOf(150), 2.5);
+  assert.ok(Math.abs(decimalOf(-110) - 1.9091) < 1e-4);
+});
+
+test('game lines: moneyline fair is de-vigged, Pinnacle double, all book prices listed', () => {
+  const rows = buildGameLines(SAMPLE_ODDS);
+  const dal = rows.find(r => r.kind === 'ml' && r.side === 'Dallas Cowboys');
+  const phi = rows.find(r => r.kind === 'ml' && r.side === 'Philadelphia Eagles');
+  const f = (a, b) => americanToProb(a) / (americanToProb(a) + americanToProb(b));
+  const want = (f(150, -175) + f(165, -190) + 2 * f(155, -170)) / 4;
+  assert.equal(dal.fair, Math.round(want * 1000) / 1000);
+  assert.ok(Math.abs(dal.fair + phi.fair - 1) < 0.002);
+  assert.equal(dal.books, 3);
+  assert.deepEqual(dal.prices.map(p => p.price).sort((a, b) => a - b), [150, 155, 165]);
+  assert.ok(!dal.prices.some(p => ['prizepicks', 'underdog'].includes(p.book)));
+});
+
+test('game lines: spread uses the main point, ignores alternates; total ignores team totals', () => {
+  const rows = buildGameLines(SAMPLE_ODDS);
+  const sp = rows.filter(r => r.kind === 'spread');
+  assert.deepEqual(sp.map(r => r.label), ['Dallas Cowboys +3.5', 'Philadelphia Eagles -3.5']);
+  assert.equal(sp[0].books, 2);
+  const tot = rows.filter(r => r.kind === 'total');
+  assert.deepEqual(tot.map(r => r.label), ['Over 47.5', 'Under 47.5']);
+  assert.equal(tot[0].books, 2);
+});
+
+test('game lines: empty input', () => {
+  assert.deepEqual(buildGameLines(null), []);
+  assert.deepEqual(buildGameLines({ home_team: 'A', away_team: 'B', bookmakers: [] }), []);
+});
