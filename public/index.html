@@ -130,7 +130,7 @@ body.typing .tabs{display:none}
   <div class="card">
     <h2>2. Legs and hit chance</h2>
     <div id="legs"></div>
-    <button class="sec" id="add">+ Add leg</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="sec" id="add">+ Add leg</button><button class="sec" id="clearLegs">Clear all</button><span class="msg mut" id="clearMsg" style="margin:0"></span></div>
     <div class="mut" style="margin-top:8px">Props you add use the fair odds from sportsbooks. You can still type legs in by hand or edit any hit chance. Matchup is optional: leave it on Unknown if you don’t have a read.</div>
     <div class="row">
       <div><label class="f" for="stake">Stake ($)</label><input id="stake" type="number" min="0" step="1"></div>
@@ -361,6 +361,14 @@ function renderLegs(){
 }
 $('legs').addEventListener('input',e=>{const i=e.target.dataset.i;if(i==null)return;const f=e.target.dataset.f;legs[i][f]=f==='p'?(parseFloat(e.target.value)||0):e.target.value;calc()});
 $('legs').addEventListener('click',e=>{const mb=e.target.closest('[data-m]');if(mb){legs[+mb.dataset.i].m=+mb.dataset.m;renderLegs();calc();return}const d=e.target.dataset.del;if(d==null)return;legs.splice(+d,1);if(!legs.length)legs.push({name:'',p:50,note:''});renderLegs();calc()});
+let undoSlip=null;
+$('clearLegs').onclick=()=>{
+ const n=legs.filter(l=>l.name).length;if(!n&&!$('tiers').value)return;
+ undoSlip={legs:legs.map(l=>({...l})),tiers:$('tiers').value};
+ legs=[{name:'',p:50,note:''}];$('tiers').value='';renderLegs();calc();
+ $('clearMsg').innerHTML=`Cleared ${n} pick${n===1?'':'s'}. <a href="#" id="undoClear" style="color:inherit">Undo</a>`;
+};
+$('clearMsg').onclick=e=>{if(e.target.id!=='undoClear'||!undoSlip)return;e.preventDefault();legs=undoSlip.legs;$('tiers').value=undoSlip.tiers;undoSlip=null;renderLegs();calc();$('clearMsg').textContent='Restored.';setTimeout(()=>{$('clearMsg').textContent=''},2000)};
 $('add').onclick=()=>{legs.push({name:'',p:50,note:''});renderLegs();calc()};
 $('stake').oninput=calc;$('tiers').oninput=calc;
 function updPromo(){const b=$('bonus').checked;$('refund').disabled=b;$('refrow').hidden=b||!$('refund').checked}
