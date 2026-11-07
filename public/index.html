@@ -89,8 +89,9 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 .pb button.added{background:var(--ac);color:var(--onac,#fff);border-color:var(--ac)}
 .more{width:100%;margin-top:8px}
 #coderow[hidden]{display:none}
-.tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;margin:0 0 12px;background:var(--card);border:1px solid var(--line);border-radius:12px}
-.tabs button{padding:10px 6px;border:0;border-radius:9px;background:none;color:var(--mut);font-family:var(--fh);font-size:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.ev{font-family:var(--fh);font-weight:700;font-size:18px}.ev.pos{color:var(--good)}.ev.neg{color:var(--bad)}
+.tabs{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:4px;padding:4px;margin:0 0 12px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.tabs button{padding:10px 4px;border:0;border-radius:9px;background:none;color:var(--mut);font-family:var(--fh);font-size:15px;font-weight:600;letter-spacing:.02em;white-space:nowrap;text-transform:uppercase}
 .tabs button.on{background:var(--ac);color:var(--onac,#fff)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
 .chips button{padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--bg);color:var(--tx);font:inherit;font-size:13px}
@@ -104,9 +105,9 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 <div><h1>Bet Payoff Calculator</h1>
 <div class="mut">Live prop lines, fair odds, and the math on your pick, parlay or single. Estimates, not advice.</div></div>
 <button id="menuBtn" class="hb" aria-label="Menu" aria-expanded="false">☰</button>
-<nav id="menu" hidden><button data-p="1" class="on">Calculator</button><button data-p="5">Best Lines</button><button data-p="2">Settings</button><button data-p="3">Definitions</button><button data-p="4">Appearance</button></nav>
+<nav id="menu" hidden><button data-p="1" class="on">Calculator</button><button data-p="5">Best Lines</button><button data-p="6">Lineup</button><button data-p="2">Settings</button><button data-p="3">Definitions</button><button data-p="4">Appearance</button></nav>
 </header>
-<nav class="tabs" id="tabs"><button data-t="1" class="on" id="tabCalc">Calculator</button><button data-t="5">Best Lines</button></nav>
+<nav class="tabs" id="tabs"><button data-t="1" class="on" id="tabCalc">Calculator</button><button data-t="5">Best Lines</button><button data-t="6">Lineup</button></nav>
 
 <section id="p1">
   <div class="card">
@@ -156,6 +157,22 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
     <div class="msg mut" id="bestFeed" style="font-size:12px"></div>
     <div class="props" id="best"></div>
     <div class="mut" style="margin-top:10px">Scans refresh about once an hour. These are the market's numbers, not a guarantee, and picks from the same game tend to move together.</div>
+  </div>
+</section>
+
+<section id="p6" hidden>
+  <div class="card">
+    <h2>Lineup builder</h2>
+    <div class="mut">Builds the highest-EV lineup from a sport’s Best Lines picks, using each app’s standard payouts. EV uses the sportsbooks’ fair odds and treats picks as independent.</div>
+    <div class="chips" id="lnSports"></div>
+    <div class="row">
+      <div><label class="f" for="lnApp">App</label><select id="lnApp"><option>PrizePicks</option><option>Underdog</option></select></div>
+      <div><label class="f" for="lnPer">Max picks per game</label><select id="lnPer"><option value="1">1 (least correlated)</option><option value="2">2</option><option value="3">3</option></select></div>
+    </div>
+    <div class="msg mut" id="lnStatus"></div>
+    <div class="opts" id="lnOpts" style="margin-top:10px"></div>
+    <div id="lnDetail"></div>
+    <div class="mut" style="margin-top:12px">Payouts: PrizePicks (Sept 18, 2026 update) and Underdog (help center, fall 2026), standard lines only. Promos, demons/goblins and some states pay differently, so confirm the payout in the app before you submit. Pick6 isn’t included because its payouts change by lineup.</div>
   </div>
 </section>
 
@@ -292,7 +309,7 @@ let file=null;
 
 /* tabs */
 const closeMenu=()=>{$('menu').hidden=true;$('menuBtn').setAttribute('aria-expanded','false')};
-function tab(n){[1,2,3,4,5].forEach(i=>{$('p'+i).hidden=i!==n});document.querySelectorAll('#menu button').forEach(b=>{b.className=+b.dataset.p===n?'on':''});document.querySelectorAll('#tabs button').forEach(b=>{b.classList.toggle('on',+b.dataset.t===n)});closeMenu();window.scrollTo(0,0);if(n===5)loadBest()}
+function tab(n){[1,2,3,4,5,6].forEach(i=>{$('p'+i).hidden=i!==n});document.querySelectorAll('#menu button').forEach(b=>{b.className=+b.dataset.p===n?'on':''});document.querySelectorAll('#tabs button').forEach(b=>{b.classList.toggle('on',+b.dataset.t===n)});closeMenu();window.scrollTo(0,0);if(n===5)loadBest();if(n===6)loadLineup()}
 $('tabs').onclick=e=>{const t=e.target.closest('[data-t]');if(t)tab(+t.dataset.t)};
 $('menuBtn').onclick=e=>{e.stopPropagation();const open=$('menu').hidden;$('menu').hidden=!open;$('menuBtn').setAttribute('aria-expanded',String(open))};
 $('menu').onclick=e=>{const p=e.target.dataset.p;if(p)tab(+p)};
@@ -503,8 +520,8 @@ async function loadBest(){
  if(d0){renderBest(d0);return}
  $('best').innerHTML='';bestStatus('Scanning games for the best lines… this can take 10–20 seconds the first time.');
  try{
-  const d=await api('/api/best',{sport:sp});
-  BEST[sp]=d;if(F.bestSport===sp)renderBest(d);
+  const d=await getBest(sp);
+  if(F.bestSport===sp)renderBest(d);
  }catch(err){bestStatus(/passcode/i.test(err.message)?'Enter the passcode on the Calculator tab first.':err.message,true)}
 }
 const APPS=['PrizePicks','Underdog','Pick6'];
@@ -522,6 +539,67 @@ function renderBest(d){
     return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${esc(p.game)} · ${esc(fmtTime(p.start))}<br><b>On ${esc(p.apps.join(', '))}</b> · ${p.books} books</small></div><div class="pb"><button data-bi="${i}" class="${sideOn(p,p.side)?'added':''}">${sideTxt}<span>${Math.round(p.prob*100)}%</span></button></div></div>`;
  }).join('');
 }
+/* lineup builder tab */
+const BEST_PENDING={};
+async function getBest(sp){
+ if(BEST[sp])return BEST[sp];
+ BEST_PENDING[sp]||=api('/api/best',{sport:sp}).then(d=>{BEST[sp]=d;return d}).finally(()=>{delete BEST_PENDING[sp]});
+ return BEST_PENDING[sp];
+}
+let lnExclude=new Set(),lnSel=0,lnOpts=[],lnAll=false;
+function lnStatus(t,bad){const s=$('lnStatus');s.className='msg '+(bad?'no':'mut');s.innerHTML=t}
+async function loadLineup(){
+ if(!['PrizePicks','Underdog'].includes(F.lnApp))F.lnApp='PrizePicks';
+ if(![1,2,3].includes(F.lnPer))F.lnPer=2;
+ $('lnApp').value=F.lnApp;$('lnPer').value=String(F.lnPer);
+ $('lnSports').innerHTML=SPORT_LIST.map(s=>`<button data-ls="${s[0]}" class="${F.bestSport===s[0]?'on':''}">${s[1]}</button>`).join('');
+ const sp=F.bestSport;
+ if(!BEST[sp]){$('lnOpts').innerHTML='';$('lnDetail').innerHTML='';lnStatus('Scanning games… this can take 10–20 seconds the first time.')}
+ try{const d=await getBest(sp);if(F.bestSport===sp)renderLineup(d)}
+ catch(err){lnStatus(esc(/passcode/i.test(err.message)?'Enter the passcode on the Calculator tab first.':err.message),true)}
+}
+function renderLineup(d){
+ const r=Lineup.buildOptions(d.picks,F.lnApp,{maxPerGame:F.lnPer,exclude:lnExclude});
+ lnOpts=r.options;
+ if(!lnOpts.length){
+  $('lnOpts').innerHTML='';$('lnDetail').innerHTML='';
+  lnStatus(FOOTBALL.has(F.bestSport)?`No ${F.lnApp} picks for football. The odds feed only has Pick6 football, and Pick6 payouts vary by lineup.`:`Only ${r.pool} ${F.lnApp} pick${r.pool===1?'':'s'} clear 54% right now, which isn’t enough for a lineup with these limits. Try allowing more picks per game, another sport, or check back closer to game time.`);
+  return;
+ }
+ if(lnSel>=lnOpts.length)lnSel=0;
+ const best=lnOpts[0],pctS=v=>(v>=0?'+':'−')+Math.abs(v*100).toFixed(1)+'%';
+ lnStatus(best.ev>0?`Best lineup: <b>${best.name}</b> at <b class="ok">${pctS(best.ev)} EV</b>, from ${r.pool} ${F.lnApp} picks.`:`No lineup is +EV right now. The closest is ${best.name} at <b class="no">${pctS(best.ev)}</b>. That’s the expected cost of playing it.`);
+ const showN=lnAll?lnOpts.length:Math.max(3,lnSel+1);
+ $('lnOpts').innerHTML=lnOpts.slice(0,showN).map((o,i)=>`<button class="opt${i===lnSel?' on':''}" data-lo="${i}"><span>${esc(o.name)}<small style="display:block">cashes ${(o.cash*100).toFixed(1)}% · all hit pays ${Math.max(...Object.values(o.table))}x</small></span><span class="ev ${o.ev>0?'pos':'neg'}">${pctS(o.ev)}</span></button>`).join('')+(lnOpts.length>showN?`<button class="sec" id="lnMore">Show all ${lnOpts.length} lineup types</button>`:lnAll&&lnOpts.length>3?`<button class="sec" id="lnMore">Show top 3</button>`:'');
+ const o=lnOpts[lnSel];
+ $('lnDetail').innerHTML=`<h2 style="margin-top:16px">${esc(o.name)} on ${esc(o.app)}</h2>
+ <div class="props">${o.legs.map(p=>{const yn=p.line==null,s=yn?(p.side==='over'?'Yes':'No'):(p.side==='over'?'Over':'Under');
+  return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${s} ${esc(p.label)}${yn?'':' '+p.line}</span><small>${esc(p.game)} · ${esc(fmtTime(p.start))} · ${p.books} books</small></div><div class="pb"><button disabled style="opacity:1">Fair<span>${Math.round(p.prob*100)}%</span></button><button style="min-width:42px;font-size:20px" data-lx="${esc(Lineup.pickKey(p))}" aria-label="Remove ${esc(p.player)}" title="Swap out this pick">×</button></div></div>`}).join('')}</div>
+ <div class="grid"><div class="stat"><b class="${o.ev>0?'ok':'no'}">${pctS(o.ev)}</b><span>EV per $1</span></div><div class="stat"><b>${(o.cash*100).toFixed(1)}%</b><span>Chance it pays anything</span></div></div>
+ <button class="pri" id="lnLoad">Load into Calculator</button>
+ ${lnExclude.size?`<button class="sec more" id="lnReset">Bring back ${lnExclude.size} removed pick${lnExclude.size>1?'s':''}</button>`:''}
+ <div class="mut" style="margin-top:8px">Tap × to swap a pick out (say you don’t trust it). The builder fills the spot with the next best pick.</div>`;
+}
+function initLineup(){
+ $('lnSports').onclick=e=>{const b=e.target.closest('[data-ls]');if(!b)return;F.bestSport=b.dataset.ls;saveF();lnSel=0;loadLineup()};
+ $('lnApp').onchange=e=>{F.lnApp=e.target.value;saveF();lnSel=0;const d=BEST[F.bestSport];if(d)renderLineup(d)};
+ $('lnPer').onchange=e=>{F.lnPer=+e.target.value;saveF();lnSel=0;const d=BEST[F.bestSport];if(d)renderLineup(d)};
+ $('lnOpts').onclick=e=>{if(e.target.id==='lnMore'){lnAll=!lnAll;renderLineup(BEST[F.bestSport]);return}const b=e.target.closest('[data-lo]');if(!b)return;lnSel=+b.dataset.lo;renderLineup(BEST[F.bestSport])};
+ $('lnDetail').onclick=e=>{
+  const x=e.target.closest('[data-lx]');
+  if(x){lnExclude.add(x.dataset.lx);const keep=lnOpts[lnSel];renderLineup(BEST[F.bestSport]);const j=lnOpts.findIndex(o=>o.name===keep.name);if(j>=0&&j!==lnSel){lnSel=j;renderLineup(BEST[F.bestSport])}return}
+  if(e.target.id==='lnReset'){lnExclude.clear();renderLineup(BEST[F.bestSport]);return}
+  if(e.target.id==='lnLoad'){
+   const o=lnOpts[lnSel];if(!o)return;
+   legs=o.legs.map(p=>{const pr=Math.round(p.prob*100);return{name:propName(p,p.side),p:pr,note:`Fair ${pr}% from ${p.books} books · ${p.game}`,key:propKey(p)+'#'+p.side}});
+   $('tiers').value=Object.entries(o.table).sort((a,b)=>b[0]-a[0]).map(([k,v])=>k+':'+v).join(', ');
+   $('bonus').checked=false;$('tiers2').value='';updPromo();
+   renderLegs();calc();tab(1);
+   setStatus(`Loaded ${o.name} (${o.app}) with its payout.${S.haircut>0?` The verdict below trims every hit chance by your ${S.haircut}% estimate haircut (Settings), so its EV reads lower than the builder’s.`:''}`);
+  }
+ };
+}
+
 function initBest(){
  if(!SPORT_LIST.some(s=>s[0]===F.bestSport))F.bestSport=F.sport||'football_nfl';
  $('bestSports').onclick=e=>{const b=e.target.closest('[data-bs]');if(!b)return;F.bestSport=b.dataset.bs;saveF();loadBest()};
@@ -554,8 +632,9 @@ function initFinder(){
 }
 
 $('stake').value=S.defaultStake;
-renderSets();renderLegs();showPre();showSer();updPromo();calc();initFinder();initBest();
+renderSets();renderLegs();showPre();showSer();updPromo();calc();initFinder();initBest();initLineup();
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 </script>
+<script type="module" src="/lineup.js"></script>
 </body>
 </html>

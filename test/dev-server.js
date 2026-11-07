@@ -10,7 +10,21 @@ globalThis.fetch = async (url, opts) => {
   const u = new URL(url);
   if (u.hostname !== 'api.prop-line.com') return realFetch(url, opts);
   let body = u.pathname.endsWith('/events') ? SAMPLE_EVENTS.map(e => ({ ...e, commence_time: new Date(Date.now() + 3600e3 * (e.id - 100)).toISOString() })) : SAMPLE_ODDS;
-  if (u.pathname.includes('/events/102/')) {
+  if (process.env.RICH && u.pathname.endsWith('/events')) {
+    body = [101, 102, 103, 104].map(id => ({ id, home_team: 'Home ' + id, away_team: 'Away ' + id, commence_time: new Date(Date.now() + 3600e3 * (id - 100)).toISOString() }));
+  } else if (process.env.RICH && u.pathname.includes('/odds')) {
+    // 6 players per game; books lean over by a seeded amount so some clear 54%
+    const id = +u.pathname.split('/events/')[1].split('/')[0];
+    const players = Array.from({ length: 6 }, (_, i) => `Player ${id}-${i}`);
+    const lean = (i) => [-185, -160, -140, -125, -110, -105][i];
+    const ou = (pl, i, price) => [{ name: 'Over', description: pl, point: 20.5, price }, { name: 'Under', description: pl, point: 20.5, price: Math.round(-price * 0.8) }];
+    const book = key => ({ key, markets: [{ key: 'player_points', outcomes: players.flatMap((pl, i) => ou(pl, i, lean((i + id) % 6))) }] });
+    const dfs = (key, extra) => ({ key, markets: [{ key: 'player_points', outcomes: players.flatMap(pl => [
+      { name: 'Over', description: pl, point: 20.5, price: 100, ...extra }, { name: 'Under', description: pl, point: 20.5, price: 100, ...extra }]) }] });
+    body = { id, home_team: 'Home ' + id, away_team: 'Away ' + id, commence_time: new Date().toISOString(),
+      bookmakers: [book('draftkings'), book('fanduel'), book('pinnacle'), dfs('prizepicks', { dfs_odds_type: 'standard' }), dfs('underdog', { payout_multiplier: 1 })] };
+  }
+  if (!process.env.RICH && u.pathname.includes('/events/102/')) {
     // second game: make Hurts a strong over so Best Lines has something to show
     body = JSON.parse(JSON.stringify(SAMPLE_ODDS));
     body.home_team = 'Kansas City Chiefs'; body.away_team = 'Buffalo Bills';

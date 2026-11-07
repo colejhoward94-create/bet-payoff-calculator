@@ -6,6 +6,7 @@ Pick a game, tap a player prop, and the app fills in the **fair hit chance** fro
 - Fair odds average every sportsbook quoting the exact line and count Pinnacle double. PrizePicks, Underdog and Pick6 lines are matched to those books, using standard lines only (no goblins, demons or boosted picks).
 - Responses are cached for a few minutes on Vercel's CDN, so a group shares one request per game instead of one per person.
 - **Best Lines tab:** scans upcoming games (NFL: next 7 days, most others: next 36 hours) and ranks PrizePicks/Underdog lines where 2+ books price the exact line and one side is 54%+. Cached for an hour, so a full scan costs ~15–20 requests per sport per hour at most.
+- **Lineup tab:** builds the highest-EV PrizePicks or Underdog lineup (Power/Standard and Flex, 2–6 picks) from the Best Lines picks, with a per-game cap to limit correlation. Payout tables live in `public/lineup.js`. Update them there if the apps change payouts.
 - Settings, presets and colors save on each phone.
 
 ## Deploy (one time)
