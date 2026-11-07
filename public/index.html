@@ -282,14 +282,14 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 let S={};try{S=JSON.parse(localStorage.getItem('bgc.settings')||'{}')}catch(e){}
 const PRESETS={
  conservative:{marginalEV:5,minEV:10,minProb:15,edgePerLeg:2,maxLegs:3,haircut:8,kellyFrac:.1,maxStakePct:1,maxStakeAbs:25},
- balanced:{marginalEV:3,minEV:8,minProb:10,edgePerLeg:1.5,maxLegs:4,haircut:5,kellyFrac:.25,maxStakePct:2,maxStakeAbs:50},
- aggressive:{marginalEV:1,minEV:5,minProb:5,edgePerLeg:.5,maxLegs:6,haircut:2,kellyFrac:.5,maxStakePct:4,maxStakeAbs:100}
+ balanced:{marginalEV:3,minEV:8,minProb:10,edgePerLeg:1.5,maxLegs:4,haircut:2,kellyFrac:.25,maxStakePct:2,maxStakeAbs:50},
+ aggressive:{marginalEV:1,minEV:5,minProb:5,edgePerLeg:.5,maxLegs:6,haircut:1,kellyFrac:.5,maxStakePct:4,maxStakeAbs:100}
 };
 const PN=['conservative','balanced','aggressive'],PK=Object.keys(PRESETS.balanced);
 const PDESC={
  conservative:'Conservative: needs a bigger edge (10%+ EV), allows few legs, trims your estimates by 8%, and keeps stakes small. Fewer bets pass.',
- balanced:'Balanced (default): “Worth it” at 8%+ EV, “Marginal” from 3%, up to 4 legs, estimates trimmed 5%, and quarter-Kelly stakes.',
- aggressive:'Aggressive: accepts smaller edges (5%+ EV), up to 6 legs, trims estimates only 2%, and allows bigger stakes. More bets pass, with bigger swings and more exposure to estimate errors.',
+ balanced:'Balanced (default): “Worth it” at 8%+ EV, “Marginal” from 3%, up to 4 legs, estimates trimmed 2%, and quarter-Kelly stakes.',
+ aggressive:'Aggressive: accepts smaller edges (5%+ EV), up to 6 legs, trims estimates only 1%, and allows bigger stakes. More bets pass, with bigger swings and more exposure to estimate errors.',
  custom:'Custom: you’ve changed some values. Pick a style above to start over.'
 };
 const NOTE={
@@ -309,6 +309,11 @@ const NOTE={
 };
 DEF.forEach(d=>{if(typeof S[d.k]!=='number')S[d.k]=(PRESETS.balanced[d.k]??d.d)});
 if(typeof S.serious!=='number')S.serious=50;
+if(!S.hc2){
+ const OLD_BAL={marginalEV:3,minEV:8,minProb:10,edgePerLeg:1.5,maxLegs:4,haircut:5,kellyFrac:.25,maxStakePct:2,maxStakeAbs:50};
+ if(Object.keys(OLD_BAL).every(k=>S[k]===OLD_BAL[k]))S.haircut=2;
+ S.hc2=1;try{localStorage.setItem('bgc.settings',JSON.stringify(S))}catch(e){}
+}
 const save=()=>{try{localStorage.setItem('bgc.settings',JSON.stringify(S))}catch(e){}};
 let legs=[{name:'',p:50,note:''}];
 let file=null;
