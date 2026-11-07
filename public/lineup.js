@@ -88,4 +88,31 @@ export function buildOptions(picks, app, { maxPerGame = 2, exclude = new Set(), 
   return { pool: pool.length, options: opts };
 }
 
-if (typeof window !== 'undefined') window.Lineup = { PAYOUTS, ENTRY_NAME, pickKey, hitDist, lineupStats, bestLineup, buildOptions };
+/**
+ * Sportsbook game lines: the best +EV single and 2..maxLegs parlays.
+ * cands: [{ game, prob (fair), dec (best decimal price at the user's books), ... }]
+ * One leg per game (books price same-game parlays differently). Legs are taken
+ * in order of single-bet EV; parlay EV is the product of the legs' (1 + EV), so
+ * that order is also the best parlay for each size. Returned in size order, not
+ * by EV: a bigger parlay always shows higher EV when every leg is +EV, but it
+ * hits far less often.
+ */
+export function buildParlays(cands, { haircut = 0, maxLegs = 4, exclude = new Set() } = {}) {
+  const cut = 1 - (Number(haircut) || 0) / 100;
+  const pool = cands
+    .filter(c => !exclude.has(c.key))
+    .map(c => ({ ...c, adj: c.prob * cut, ev1: c.prob * cut * c.dec - 1 }))
+    .filter(c => c.ev1 > 0)
+    .sort((a, b) => b.ev1 - a.ev1);
+  const legs = [], games = new Set();
+  for (const c of pool) { if (games.has(c.game)) continue; legs.push(c); games.add(c.game); }
+  const options = [];
+  for (let k = 1; k <= Math.min(maxLegs, legs.length); k++) {
+    const L = legs.slice(0, k), prod = L.reduce((a, l) => a * l.dec, 1);
+    const table = { [k]: prod };
+    options.push({ app: 'Sportsbook', type: k === 1 ? 'single' : 'parlay', size: k, name: k === 1 ? 'Single' : `${k}-leg parlay`, table, legs: L, ...lineupStats(L.map(l => l.adj), table) });
+  }
+  return { pool: pool.length, options };
+}
+
+if (typeof window !== 'undefined') window.Lineup = { buildParlays, PAYOUTS, ENTRY_NAME, pickKey, hitDist, lineupStats, bestLineup, buildOptions };

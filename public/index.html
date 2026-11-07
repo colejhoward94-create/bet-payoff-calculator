@@ -166,10 +166,10 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 <section id="p6" hidden>
   <div class="card">
     <h2>Lineup builder</h2>
-    <div class="mut">Builds the highest-EV lineup from a sport’s Best Lines picks, using each app’s standard payouts. EV uses the sportsbooks’ fair odds and treats picks as independent.</div>
+    <div class="mut">Builds the highest-EV lineup from a sport’s Best Lines picks, using each app’s standard payouts, or a single or parlay from +EV game lines at your books. EV uses the sportsbooks’ fair odds and treats picks as independent.</div>
     <div class="chips" id="lnSports"></div>
     <div class="row">
-      <div><label class="f" for="lnApp">App</label><select id="lnApp"><option>PrizePicks</option><option>Underdog</option></select></div>
+      <div><label class="f" for="lnApp">App</label><select id="lnApp"><option>PrizePicks</option><option>Underdog</option><option value="Sportsbook">Sportsbook (game lines)</option></select></div>
       <div><label class="f" for="lnPer">Max picks per game</label><select id="lnPer"><option value="1">1 (least correlated)</option><option value="2">2</option><option value="3">3</option></select></div>
     </div>
     <div class="msg mut" id="lnStatus"></div>
@@ -626,9 +626,9 @@ async function getBest(sp){
 let lnExclude=new Set(),lnSel=0,lnOpts=[],lnAll=false;
 function lnStatus(t,bad){const s=$('lnStatus');s.className='msg '+(bad?'no':'mut');s.innerHTML=t}
 async function loadLineup(){
- if(!['PrizePicks','Underdog'].includes(F.lnApp))F.lnApp='PrizePicks';
+ if(!['PrizePicks','Underdog','Sportsbook'].includes(F.lnApp))F.lnApp='PrizePicks';
  if(![1,2,3].includes(F.lnPer))F.lnPer=2;
- $('lnApp').value=F.lnApp;$('lnPer').value=String(F.lnPer);
+ $('lnApp').value=F.lnApp;$('lnPer').value=String(F.lnPer);$('lnPer').parentElement.hidden=F.lnApp==='Sportsbook';
  $('lnSports').innerHTML=SPORT_LIST.map(s=>`<button data-ls="${s[0]}" class="${F.bestSport===s[0]?'on':''}">${s[1]}</button>`).join('');
  const sp=F.bestSport;
  if(!BEST[sp]){$('lnOpts').innerHTML='';$('lnDetail').innerHTML='';lnStatus('Scanning games… this can take 10–20 seconds the first time.')}
@@ -636,6 +636,8 @@ async function loadLineup(){
  catch(err){lnStatus(esc(/passcode/i.test(err.message)?'Enter the passcode on the Calculator tab first.':err.message),true)}
 }
 function renderLineup(d){
+ $('lnPer').parentElement.hidden=F.lnApp==='Sportsbook';$('lnApp').parentElement.style.gridColumn=F.lnApp==='Sportsbook'?'1/-1':'';
+ if(F.lnApp==='Sportsbook')return renderParlays(d);
  const r=Lineup.buildOptions(d.picks,F.lnApp,{maxPerGame:F.lnPer,exclude:lnExclude,haircut:S.haircut});
  lnOpts=r.options;
  if(!lnOpts.length){
@@ -658,6 +660,30 @@ function renderLineup(d){
  ${lnExclude.size?`<button class="sec more" id="lnReset">Bring back ${lnExclude.size} removed pick${lnExclude.size>1?'s':''}</button>`:''}
  <div class="mut" style="margin-top:8px">Tap × to swap a pick out (say you don’t trust it). The builder fills the spot with the next best pick.</div>`;
 }
+function renderParlays(d){
+ const rows=d.gameLines||[];noteBooks(rows);
+ const cands=rows.map(r=>{const bp=bestPrice(r);if(!bp||r.fair==null||r.books<3||bp.ev>0.15)return null;
+  return{...r,prob:r.fair,dec:bp.dec,price:bp.price,title:bp.title,key:'gl|'+r.game+'|'+r.kind+'|'+r.side}}).filter(Boolean);
+ const res=Lineup.buildParlays(cands,{haircut:S.haircut,exclude:lnExclude});
+ lnOpts=res.options;
+ const hc=S.haircut>0?`<br><span style="font-size:12px">EV includes your ${S.haircut}% estimate haircut, same as the calculator. <a href="#" id="lnHc" style="color:inherit">Change it</a></span>`:'';
+ const books=`<div class="mut" style="margin-top:12px;font-size:12px">Books I can bet at (tap to turn off):</div><div class="chips">${bookChips()}</div>`;
+ if(!lnOpts.length){
+  $('lnOpts').innerHTML='';$('lnDetail').innerHTML=books;
+  lnStatus((rows.length?`No game line is +EV at your books right now. That’s common: game lines are the sharpest market.`:'No game lines in this window.')+hc);
+  return;
+ }
+ if(lnSel>=lnOpts.length)lnSel=0;
+ lnStatus(`${res.pool} game line${res.pool===1?'':'s'} +EV at your books. <b>Singles are the steadiest way to bet an edge.</b> Parlays multiply the edge and the swings, and always show a higher EV because every leg is +EV.`+hc);
+ $('lnOpts').innerHTML=lnOpts.map((o,i)=>`<button class="opt${i===lnSel?' on':''}" data-lo="${i}"><span>${esc(o.name)}<small style="display:block">hits ${(o.cash*100).toFixed(1)}% · pays ${o.table[o.size].toFixed(2)}x</small></span><span class="ev ${o.ev>0?'pos':'neg'}">${pctS(o.ev)}</span></button>`).join('');
+ const o=lnOpts[lnSel];
+ $('lnDetail').innerHTML=`<h2 style="margin-top:16px">${esc(o.name)} at your best books</h2>
+ <div class="props">${o.legs.map(r=>`<div class="prop"><div><b>${esc(r.kind==='ml'?r.label+' ML':r.label)}</b><span class="pl">${fmtAm(r.price)} at ${esc(r.title)}</span><small>${esc(r.game)} · ${esc(fmtTime(r.start))} · EV ${pctS(r.ev1)} · ${r.books} books</small></div><div class="pb"><button disabled style="opacity:1">Fair<span>${Math.round(r.prob*100)}%</span></button><button style="min-width:42px;font-size:20px" data-lx="${esc(r.key)}" aria-label="Remove" title="Swap out this leg">×</button></div></div>`).join('')}</div>
+ <div class="grid"><div class="stat"><b class="${o.ev>0?'ok':'no'}">${pctS(o.ev)}</b><span>EV per $1</span></div><div class="stat"><b>${(o.cash*100).toFixed(1)}%</b><span>Chance it hits</span></div></div>
+ <button class="pri" id="lnLoad">Load into Calculator</button>
+ ${lnExclude.size?`<button class="sec more" id="lnReset">Bring back ${lnExclude.size} removed pick${lnExclude.size>1?'s':''}</button>`:''}
+ <div class="mut" style="margin-top:8px">One leg per game. Each leg is priced at the best of your books, so a parlay may need legs from different books. Check your book’s actual parlay payout before betting.</div>${books}`;
+}
 function initLineup(){
  $('lnSports').onclick=e=>{const b=e.target.closest('[data-ls]');if(!b)return;F.bestSport=b.dataset.ls;saveF();lnSel=0;loadLineup()};
  $('lnApp').onchange=e=>{F.lnApp=e.target.value;saveF();lnSel=0;const d=BEST[F.bestSport];if(d)renderLineup(d)};
@@ -668,8 +694,17 @@ function initLineup(){
   const x=e.target.closest('[data-lx]');
   if(x){lnExclude.add(x.dataset.lx);const keep=lnOpts[lnSel];renderLineup(BEST[F.bestSport]);const j=lnOpts.findIndex(o=>o.name===keep.name);if(j>=0&&j!==lnSel){lnSel=j;renderLineup(BEST[F.bestSport])}return}
   if(e.target.id==='lnReset'){lnExclude.clear();renderLineup(BEST[F.bestSport]);return}
+  const bk=e.target.closest('[data-bk]');if(bk){toggleBook(bk.dataset.bk);renderLineup(BEST[F.bestSport]);return}
   if(e.target.id==='lnLoad'){
    const o=lnOpts[lnSel];if(!o)return;
+   if(o.app==='Sportsbook'){
+    legs=o.legs.map(r=>{const g=glLeg(r,r.game),pr=Math.round(r.prob*1000)/10;return{name:g.legName,p:pr,note:`Fair ${pr}% from ${r.books} books · ${fmtAm(r.price)} at ${r.title}`,key:propKey(g)+'#'+r.side,dec:r.dec}});
+    $('tiers').value=`${o.size}:${o.table[o.size].toFixed(3)}`;
+    $('bonus').checked=false;$('tiers2').value='';updPromo();
+    renderLegs();calc();tab(1);
+    setStatus(`Loaded ${o.name} at your best books. The verdict below uses the same ${S.haircut}% haircut as the builder.`);
+    return;
+   }
    legs=o.legs.map(p=>{const pr=Math.round(p.prob*1000)/10;return{name:propName(p,p.side),p:pr,note:`Fair ${pr}% from ${p.books} books · ${p.game}`,key:propKey(p)+'#'+p.side}});
    $('tiers').value=Object.entries(o.table).sort((a,b)=>b[0]-a[0]).map(([k,v])=>k+':'+v).join(', ');
    $('bonus').checked=false;$('tiers2').value='';updPromo();

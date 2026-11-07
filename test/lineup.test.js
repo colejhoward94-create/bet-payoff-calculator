@@ -70,3 +70,30 @@ test('haircut lowers EV the same way the calculator does', () => {
   near(cut.ev, Math.pow(0.57 * 0.95, 5) * 20 - 1);
   assert.ok(raw.ev > 0 && cut.ev < 0);
 });
+
+import { buildParlays } from '../public/lineup.js';
+
+test('parlays: +EV legs only, one per game, EV multiplies, size order', () => {
+  const c = (key, game, prob, dec) => ({ key, game, prob, dec });
+  const cands = [
+    c('a', 'G1', 0.55, 2.0),   // EV +10%
+    c('b', 'G1', 0.53, 2.0),   // +6%, same game as a -> skipped
+    c('d', 'G2', 0.52, 2.0),   // +4%
+    c('e', 'G3', 0.40, 2.6),   // +4%
+    c('f', 'G4', 0.45, 2.0),   // -10% -> out
+  ];
+  const { pool, options } = buildParlays(cands);
+  assert.equal(pool, 4);
+  assert.deepEqual(options.map(o => o.name), ['Single', '2-leg parlay', '3-leg parlay']);
+  assert.deepEqual(options[2].legs.map(l => l.key), ['a', 'd', 'e']);
+  near(options[0].ev, 0.1);
+  near(options[1].ev, 1.1 * 1.04 - 1);
+  near(options[1].table[2], 4);
+  near(options[1].hitAll, 0.55 * 0.52);
+});
+
+test('parlays: haircut and exclude', () => {
+  const cands = [{ key: 'a', game: 'G1', prob: 0.52, dec: 2.0 }, { key: 'b', game: 'G2', prob: 0.56, dec: 2.0 }];
+  assert.equal(buildParlays(cands, { haircut: 5 }).pool, 1);           // .52*.95*2 < 1
+  assert.equal(buildParlays(cands, { exclude: new Set(['b']) }).options.length, 1);
+});
