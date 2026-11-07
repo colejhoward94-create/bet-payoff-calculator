@@ -628,7 +628,7 @@ function renderBest(d){
  $('bestAppChips').innerHTML=['All',...APPS].map(a=>`<button data-ba="${a}" class="${F.bestApp===a?'on':''}">${a} (${a==='All'?d.picks.length:per(a)})</button>`).join('');
  const shown=d.picks.map((p,i)=>[p,i]).filter(([p])=>F.bestApp==='All'||p.apps.includes(F.bestApp));
  const t=new Date(d.fetched),mins=Math.max(0,Math.round((Date.now()-t)/60000));
- const fd=d.feed||{},mt=d.matched||{};$('bestFeed').innerHTML='Standard lines in the feed: '+APPS.map(a=>`${a} ${fd[a]?fd[a].standard:0}`).join(' · ')+'<br>Matched to 2+ sportsbooks at the same line: '+APPS.map(a=>`${a} ${mt[a]||0}`).join(' · ');
+ const fd=d.feed||{},mt=d.matched||{},q=d.quota||{};$('bestFeed').innerHTML=(q.remaining!=null?`Odds requests left today: <b>${q.remaining}</b>${q.limit?' of '+q.limit:''} (as of this scan)<br>`:'')+'Standard lines in the feed: '+APPS.map(a=>`${a} ${fd[a]?fd[a].standard:0}`).join(' · ')+'<br>Matched to 2+ sportsbooks at the same line: '+APPS.map(a=>`${a} ${mt[a]||0}`).join(' · ');
  bestStatus(`${d.window}: ${d.picks.length} line${d.picks.length===1?'':'s'} from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}${d.failed?` (${d.failed} game${d.failed>1?'s':''} couldn’t load)`:''}.`);
  if(!shown.length){$('best').innerHTML=`<div class="mut">${!d.games?'No games in this window.':F.bestApp!=='All'?`Nothing on ${F.bestApp} clears 54% right now.`:'Nothing clears 54% right now. Lines move, so check back closer to game time.'}</div>`;return}
  $('best').innerHTML=shown.slice(0,60).map(([p,i])=>{
@@ -656,18 +656,19 @@ async function loadLineup(){
  const sports=lnSportList(),want=sports.join(',');
  $('lnSports').innerHTML=SPORT_LIST.map(s=>`<button data-ls="${s[0]}" class="${sports.includes(s[0])?'on':''}">${s[1]}</button>`).join('');
  if(sports.some(k=>!BEST[k])){$('lnOpts').innerHTML='';$('lnDetail').innerHTML='';lnStatus(`Scanning ${sports.map(sportLabel).join(' + ')}… this can take 10–20 seconds the first time.`)}
- const res=await Promise.allSettled(sports.map(getBest));
+ // one sport at a time so two scans don't hit the odds provider at once
+ const res=[];for(const k of sports){try{res.push({status:'fulfilled',value:await getBest(k)})}catch(err){res.push({status:'rejected',reason:err})}}
  if(lnSportList().join(',')!==want)return; // selection changed while loading
  const D={picks:[],gameLines:[],sports:[],failed:[]};
  res.forEach((r,i)=>{
   const lab=sportLabel(sports[i]);
-  if(r.status!=='fulfilled'){D.failed.push(lab);if(/passcode/i.test(r.reason&&r.reason.message))D.passcode=true;return}
+  if(r.status!=='fulfilled'){const m=(r.reason&&r.reason.message)||'';D.failed.push(lab);D.why=D.why||m;if(/passcode/i.test(m))D.passcode=true;return}
   D.sports.push(sports[i]);
   // prefix the game with the sport so per-game limits never mix up two leagues
   D.picks.push(...r.value.picks.map(p=>({...p,game:`${lab} · ${p.game}`})));
   D.gameLines.push(...(r.value.gameLines||[]).map(g=>({...g,game:`${lab} · ${g.game}`})));
  });
- if(!D.sports.length){lnStatus(D.passcode?'Enter the passcode on the Calculator tab first.':`Couldn’t load ${D.failed.join(' + ')} right now.`,true);return}
+ if(!D.sports.length){lnStatus(D.passcode?'Enter the passcode on the Calculator tab first.':`Couldn’t load ${D.failed.join(' + ')}: ${esc(D.why||'unknown error')}`,true);return}
  LN=D;renderLineup(D);
 }
 const lnFrom=d=>{const n=d.sports.length;return (n>1?` across ${d.sports.map(sportLabel).join(' + ')}`:'')+(d.failed.length?` (${d.failed.join(' + ')} couldn’t load)`:'')};

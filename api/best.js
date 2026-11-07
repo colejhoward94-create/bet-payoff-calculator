@@ -3,7 +3,7 @@
 // One request per game, so results are cached on Vercel's CDN for an hour:
 // a whole group checking all day costs ~24 scans per sport, not one per view.
 import { SPORTS, SCAN, buildProps, pickBest, feedCounts, buildGameLines, GAME_MARKETS } from '../lib/odds.js';
-import { propline, checkPasscode, send, fail, HttpError } from '../lib/upstream.js';
+import { propline, checkPasscode, send, fail, HttpError, quota } from '../lib/upstream.js';
 
 export const config = { maxDuration: 60 };
 
@@ -24,8 +24,8 @@ export default async function handler(req, res) {
     const picks = [], feed = {}, matched = {}, gameLines = [];
     let scanned = 0, failed = 0;
     // A few at a time to stay under PropLine's per-minute burst limit.
-    for (let i = 0; i < events.length; i += 4) {
-      await Promise.all(events.slice(i, i + 4).map(async e => {
+    for (let i = 0; i < events.length; i += 3) {
+      await Promise.all(events.slice(i, i + 3).map(async e => {
         try {
           const odds = await propline(`/sports/${sport}/events/${encodeURIComponent(e.id)}/odds`, {
             markets: [...Object.keys(labels), ...GAME_MARKETS].join(','),
@@ -52,6 +52,7 @@ export default async function handler(req, res) {
       picks: picks.slice(0, 150),
       gameLines,
       fetched: new Date().toISOString(),
+      quota: { ...quota },
     }, 3600);
   } catch (err) {
     fail(res, err);

@@ -1,6 +1,6 @@
 // GET /api/props?sport=football_nfl&event=123  ->  player props with fair probabilities
 import { SPORTS, buildProps, buildGameLines, GAME_MARKETS } from '../lib/odds.js';
-import { propline, checkPasscode, send, fail, HttpError } from '../lib/upstream.js';
+import { propline, checkPasscode, send, fail, HttpError, quota } from '../lib/upstream.js';
 
 export default async function handler(req, res) {
   try {
@@ -19,6 +19,7 @@ export default async function handler(req, res) {
       props: buildProps(odds, labels),
       gameLines: buildGameLines(odds),
       fetched: new Date().toISOString(),
+      quota: { ...quota },
     }, 180);
   } catch (err) {
     fail(res, err);
