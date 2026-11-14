@@ -1,5 +1,5 @@
 // Keeps the app shell available offline. Odds (/api) always come from the network.
-const CACHE = 'betcalc-v17';
+const CACHE = 'betcalc-v18';
 const SHELL = ['/', '/manifest.webmanifest', '/favicon.png', '/icons/icon-192.png', '/icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

@@ -53,9 +53,11 @@ export default async function handler(req, res) {
           // How many of each app's lines line up with 2+ sportsbooks at the exact line
           for (const r of rows) if (r.line != null && r.bookLine == null && r.books >= 2)
             for (const a of r.apps) matched[a] = (matched[a] || 0) + 1;
-          picks.push(...pickBest(rows, game));
+          // Full team names ride along so the Best Lines search can find "Buffalo", not just "Bills".
+          const teams = [e.away_team, e.home_team];
+          picks.push(...pickBest(rows, game).map(p => ({ ...p, teams })));
           feedCounts(odds, labels, feed);
-          for (const r of buildGameLines(odds)) if (r.fair != null && r.books >= 3) gameLines.push({ ...r, game: game.label, start: game.start });
+          for (const r of buildGameLines(odds)) if (r.fair != null && r.books >= 3) gameLines.push({ ...r, game: game.label, start: game.start, teams });
           scanned++;
         } catch (err) {
           if (err.status === 429) throw err; // out of daily requests: stop

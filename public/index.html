@@ -162,6 +162,7 @@ body.typing .tabs{display:none}
     <div class="msg mut" id="bestStatus"></div>
     <div class="chips" id="bestAppChips"></div>
     <div class="msg mut" id="bestFeed" style="font-size:12px"></div>
+    <input id="bestQ" type="search" placeholder="Search a team or player" autocomplete="off" style="margin-top:10px">
     <div class="props" id="best"></div>
     <div class="mut" style="margin-top:10px">Scans refresh about once an hour. These are the market's numbers, not a guarantee, and picks from the same game tend to move together.</div>
   </div>
@@ -649,24 +650,33 @@ function renderBestGame(d){
  // +EV = the best price at your books pays more than the fair odds imply.
  // Over 15% is almost always a stale or wrong quote, so those are skipped.
  const list=rows.map((r,i)=>[r,i,bestPrice(r)]).filter(([r,,bp])=>bp&&bp.ev!=null&&bp.ev>0&&bp.ev<=0.15).sort((a,b)=>b[2].ev-a[2].ev);
+ const found=list.filter(([r])=>bestHit(r));
  bestStatus(`${d.window}: ${list.length} game line${list.length===1?'':'s'} priced better than fair at your books, from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}.${cfbNote(d)}`);
  if(!list.length){$('best').innerHTML=`<div class="mut">${rows.length?'Nothing beats the fair odds at your books right now. That’s normal: books shade toward each other. Check back as lines move.':(d.cfb&&!d.games?'No games match your filters in this window.':'No game lines in this window.')}</div>`;return}
- $('best').innerHTML=list.slice(0,60).map(([r,i,bp])=>{
+ if(!found.length){$('best').innerHTML=bestMiss(d);return}
+ $('best').innerHTML=found.slice(0,60).map(([r,i,bp])=>{
   const nm=r.kind==='ml'?r.label+' ML':r.label;
   return `<div class="prop"><div><b>${esc(nm)}</b><span class="pl">${esc(r.game)} · ${esc(fmtTime(r.start))}</span><small>Best <b>${fmtAm(bp.price)} at ${esc(bp.title)}</b> · fair ${Math.round(r.fair*100)}% from ${r.books} books</small></div><div class="pb"><button data-bg="${i}" class="${sideOn(glLeg(r,r.game),r.side)?'added':''}">EV<span class="ok">${pctS(bp.ev)}</span></button></div></div>`;
  }).join('');
 }
 const APPS=['PrizePicks','Underdog','Pick6'];
+// Best Lines search: every word typed must appear in the team names, matchup, player or market.
+let bestQ='';
+const bestHit=r=>{const w=bestQ.toLowerCase().split(/\s+/).filter(Boolean);if(!w.length)return true;
+ const hay=[r.game,...(r.teams||[]),r.player,r.label].filter(Boolean).join(' ').toLowerCase();return w.every(x=>hay.includes(x))};
+const bestMiss=d=>`<div class="mut">Nothing matches “${esc(bestQ)}” in this scan.${d.cfb?' In college football the team also has to pass your filters above.':''}</div>`;
 function renderBest(d){
  if(!['All',...APPS].includes(F.bestApp))F.bestApp='All';
  const per=a=>d.picks.filter(p=>p.apps.includes(a)).length;
  $('bestAppChips').innerHTML=['All',...APPS].map(a=>`<button data-ba="${a}" class="${F.bestApp===a?'on':''}">${a} (${a==='All'?d.picks.length:per(a)})</button>`).join('');
- const shown=d.picks.map((p,i)=>[p,i]).filter(([p])=>F.bestApp==='All'||p.apps.includes(F.bestApp));
+ const shown=d.picks.map((p,i)=>[p,i]).filter(([p])=>(F.bestApp==='All'||p.apps.includes(F.bestApp)));
+ const found=shown.filter(([p])=>bestHit(p));
  const t=new Date(d.fetched),mins=Math.max(0,Math.round((Date.now()-t)/60000));
  const fd=d.feed||{},mt=d.matched||{},q=d.quota||{};$('bestFeed').innerHTML=(q.remaining!=null?`Odds requests left today: <b>${q.remaining}</b>${q.limit?' of '+q.limit:''} (as of this scan)<br>`:'')+'Standard lines in the feed: '+APPS.map(a=>`${a} ${fd[a]?fd[a].standard:0}`).join(' · ')+'<br>Matched to 2+ sportsbooks at the same line: '+APPS.map(a=>`${a} ${mt[a]||0}`).join(' · ');
  bestStatus(`${d.window}: ${d.picks.length} line${d.picks.length===1?'':'s'} from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}${d.failed?` (${d.failed} game${d.failed>1?'s':''} couldn’t load)`:''}.${cfbNote(d)}`);
  if(!shown.length){$('best').innerHTML=`<div class="mut">${!d.games?(d.cfb?'No games match your filters in this window.':'No games in this window.'):F.bestApp!=='All'?`Nothing on ${F.bestApp} clears 54% right now.`:'Nothing clears 54% right now. Lines move, so check back closer to game time.'}</div>`;return}
- $('best').innerHTML=shown.slice(0,60).map(([p,i])=>{
+ if(!found.length){$('best').innerHTML=bestMiss(d);return}
+ $('best').innerHTML=found.slice(0,60).map(([p,i])=>{
   const yn=p.line==null,sideTxt=yn?(p.side==='over'?'Yes':'No'):(p.side==='over'?'Over':'Under');
     return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${esc(p.game)} · ${esc(fmtTime(p.start))}<br><b>On ${esc(p.apps.join(', '))}</b> · ${p.books} books</small></div><div class="pb"><button data-bi="${i}" class="${sideOn(p,p.side)?'added':''}">${sideTxt}<span>${Math.round(p.prob*100)}%</span></button></div></div>`;
  }).join('');
@@ -794,6 +804,7 @@ function initLineup(){
 function initBest(){
  if(!SPORT_LIST.some(s=>s[0]===F.bestSport))F.bestSport=F.sport||'football_nfl';
  $('bestSports').onclick=e=>{const b=e.target.closest('[data-bs]');if(!b)return;F.bestSport=b.dataset.bs;saveF();loadBest()};
+ $('bestQ').oninput=e=>{bestQ=e.target.value.trim();const d=BEST[F.bestSport];if(d)renderBestView(d)};
  $('bestCfb').onclick=e=>{const b=e.target.closest('[data-cf]');if(!b)return;const[g,k]=b.dataset.cf.split(':');toggleCfb(g,k)};
  $('bestAppChips').onclick=e=>{const b=e.target.closest('[data-ba]');if(!b)return;F.bestApp=b.dataset.ba;saveF();const d=BEST[F.bestSport];if(d)renderBest(d)};
  $('bestView').onclick=e=>{const b=e.target.closest('[data-bv]');if(!b)return;F.bestView=b.dataset.bv;saveF();const d=BEST[F.bestSport];if(d)renderBestView(d)};
