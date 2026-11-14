@@ -23,7 +23,10 @@ globalThis.fetch = async (url, opts) => {
       const bk = (key, ml) => ({ key, title: key[0].toUpperCase() + key.slice(1), markets: [
         { key: 'h2h', outcomes: [{ name: A, price: ml[0] }, { name: H, price: ml[1] }] },
         { key: 'spreads', line_type: 'main', outcomes: [{ name: A, point: 6.5, price: -110 }, { name: H, point: -6.5, price: -110 }] },
-        { key: 'totals', line_type: 'main', outcomes: [{ name: 'Over', point: 51.5, price: -110 }, { name: 'Under', point: 51.5, price: -110 }] }] });
+        { key: 'totals', line_type: 'main', outcomes: [{ name: 'Over', point: 51.5, price: -110 }, { name: 'Under', point: 51.5, price: -110 }] },
+        { key: 'totals', team: H, outcomes: [{ name: 'Over', point: 30.5, price: key === 'fanduel' ? 120 : -110 }, { name: 'Under', point: 30.5, price: key === 'fanduel' ? -150 : -110 }] },
+        { key: 'spreads', period: 'h1', outcomes: [{ name: A, point: 3.5, price: key === 'fanduel' ? 110 : -110 }, { name: H, point: -3.5, price: key === 'fanduel' ? -135 : -110 }] },
+        { key: 'h2h', period: 'q1', outcomes: [{ name: A, price: key === 'fanduel' ? 190 : 160 }, { name: H, price: -200 }] }] });
       body = { id: 201 + i, home_team: H, away_team: A, bookmakers: [bk('draftkings', [200, -250]), bk('fanduel', [235 + 10 * i, -290]), bk('pinnacle', [205, -245])] };
     }
   } else if (process.env.RICH && u.pathname.endsWith('/events')) {

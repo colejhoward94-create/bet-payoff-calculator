@@ -158,6 +158,7 @@ body.typing .tabs{display:none}
     <div class="chips" id="bestSports"></div>
     <div id="bestCfb" hidden></div>
     <div class="chips" id="bestView"></div>
+    <div id="bestTypes" hidden></div>
     <div id="bestBooks" hidden></div>
     <div class="msg mut" id="bestStatus"></div>
     <div class="chips" id="bestAppChips"></div>
@@ -549,7 +550,23 @@ function bestPrice(r){
 const pctS=v=>(v>=0?'+':'−')+Math.abs(v*100).toFixed(1)+'%';
 function glLeg(r,game){
  const g=shortGame(game),nm=r.kind==='total'?`${r.label} (${g})`:r.kind==='ml'?`${r.label} ML`:r.label;
- return{market:'gl_'+r.kind,player:game,line:'',legName:nm};
+ return{market:'gl_'+(r.id||r.kind),player:game,line:'',legName:nm};
+}
+/* Game line bet types, picked per sport: any mix of moneyline, spread, O/U and team totals,
+   for the full game and/or a period (1st half, 1st quarter, 1st period, first 5 innings). */
+const GL_TYPES=[['ml','Moneyline'],['spread','Spread'],['total','O/U (game total)'],['tt','Team totals']];
+const GL_PERIODS=[['full','Full game'],['h1','1st Half'],['q1','1st Quarter'],['p1','1st Period'],['f5','First 5 Inn.']];
+const GL_DEF={types:['ml','spread','total','tt'],periods:['full']};
+function glSel(sp){
+ const all=F.glSel&&typeof F.glSel==='object'?F.glSel:{},c=all[sp]||{};
+ const ok=(a,list,d)=>{const v=Array.isArray(a)?a.filter(x=>list.some(l=>l[0]===x)):[];return v.length?v:d.slice()};
+ return{types:ok(c.types,GL_TYPES,GL_DEF.types),periods:ok(c.periods,GL_PERIODS,GL_DEF.periods)};
+}
+const glPass=(sp,r)=>{const c=glSel(sp);return c.types.includes(r.kind)&&c.periods.includes(r.period||'full')};
+function toggleGlSel(sp,grp,k){
+ const c=glSel(sp),a=c[grp],i=a.indexOf(k);
+ if(i>=0){if(a.length===1)return grp==='types'?'Keep at least one bet type on.':'Keep at least one of these on.';a.splice(i,1)}else a.push(k);
+ F.glSel={...(F.glSel||{}),[sp]:c};saveF();return '';
 }
 function toggleGameLine(r,game){
  const bp=bestPrice(r),prob=r.fair==null?50:Math.round(r.fair*100);
@@ -576,19 +593,28 @@ function toggleBook(k){
  no.has(k)?no.delete(k):no.add(k);F.noBooks=[...no];saveF()}
 const noBookOn=()=>{const no=myBooks();return BOOKS_SEEN.size>0&&[...BOOKS_SEEN.keys()].every(k=>no.has(k))};
 // show the two sides of a market summing to 100
-const glShort=r=>r.kind==='total'?r.label:r.kind==='spread'?`${r.side.split(' ').slice(-1)[0]} ${r.point>0?'+':''}${r.point}`:r.side.split(' ').slice(-1)[0];
+const glShort=r=>r.kind==='tt'?`${shortTeam(r.team)} ${r.side} ${r.point}`:r.kind==='total'?`${r.side} ${r.point}`:r.kind==='spread'?`${r.side.split(' ').slice(-1)[0]} ${r.point>0?'+':''}${r.point}`:r.side.split(' ').slice(-1)[0];
 const glPct=(r,rs)=>{const f0=Math.round(rs[0][0].fair*100);return r===rs[0][0]?f0:100-f0};
+let glMore=false;
 function renderGameLines(){
  const box=$('glines');if(!GL.length){box.innerHTML='';return}
- const kinds=[['ml','Moneyline'],['spread','Spread'],['total','Total']];
  const n=BOOKS_SEEN.size,on=n-[...myBooks()].filter(k=>BOOKS_SEEN.has(k)).length;
- box.innerHTML=`<h2 style="margin:14px 0 6px">Game lines</h2>`+kinds.map(([k,name])=>{
-  const rs=GL.map((r,i)=>[r,i]).filter(([r])=>r.kind===k);if(!rs.length)return'';
+ // One card per market (two sides). Full-game moneyline, spread and total show first;
+ // team totals and period lines sit behind "More lines".
+ const groups=new Map();GL.forEach((r,i)=>{const id=r.id||r.kind;if(!groups.has(id))groups.set(id,[]);groups.get(id).push([r,i])});
+ const kindName={ml:'Moneyline',spread:'Spread',total:'Total'};
+ const pName={h1:'1st Half',q1:'1st Quarter',p1:'1st Period',f5:'First 5 Inn.'};
+ const title=r=>(r.period?pName[r.period]+' ':'')+(r.kind==='tt'?shortTeam(r.team)+' team total':kindName[r.kind]);
+ const card=rs=>{
   const lines=rs.map(([r])=>{const bp=bestPrice(r);return `<span style="font-weight:700;color:var(--tx)">${esc(glShort(r))}</span> ${bp?`${fmtAm(bp.price)} at ${esc(bp.title)}${bp.ev!=null?` · <span class="${bp.ev>0?'ok':''}">EV ${pctS(bp.ev)}</span>`:''}`:'no price at your books'}`}).join('<br>');
-  const btn=([r,i])=>{const short=r.kind==='total'?r.side:r.kind==='spread'?(r.point>0?'+':'')+r.point:r.side.split(' ').slice(-1)[0];
+  const btn=([r,i])=>{const short=r.kind==='total'||r.kind==='tt'?r.side:r.kind==='spread'?(r.point>0?'+':'')+r.point:r.side.split(' ').slice(-1)[0];
    return `<button data-gi="${i}" class="${sideOn(glLeg(r,GL_GAME),r.side)?'added':''}">${esc(short)}<span>${r.fair==null?'—':glPct(r,rs)+'%'}</span></button>`};
-  return `<div class="prop"><div><b>${name}</b><small style="font-size:13px">${lines}<br>best price at your books · fair from ${rs[0][0].books} book${rs[0][0].books===1?'':'s'}</small></div><div class="pb">${rs.map(btn).join('')}</div></div>`;
- }).join('')+`<button class="sec more" id="glBooksBtn">Books I can bet at: ${on} of ${n}</button><div class="chips" id="glBooks" hidden>${bookChips()}</div><h2 style="margin:16px 0 6px">Player props</h2>`;
+  return `<div class="prop"><div><b>${esc(title(rs[0][0]))}</b><small style="font-size:13px">${lines}<br>best price at your books · fair from ${rs[0][0].books} book${rs[0][0].books===1?'':'s'}</small></div><div class="pb">${rs.map(btn).join('')}</div></div>`;
+ };
+ const main=[...groups.values()].filter(rs=>!rs[0][0].period&&rs[0][0].kind!=='tt'),more=[...groups.values()].filter(rs=>!main.includes(rs));
+ box.innerHTML=`<h2 style="margin:14px 0 6px">Game lines</h2>`+main.map(card).join('')+
+  (more.length?`<button class="sec more" id="glMoreBtn">${glMore?'Hide':'More lines:'} ${[more.some(rs=>rs[0][0].kind==='tt')?'team totals':'',more.some(rs=>rs[0][0].period)?'halves and periods':''].filter(Boolean).join(', ')} (${more.length})</button>${glMore?more.map(card).join(''):''}`:'')+
+  `<button class="sec more" id="glBooksBtn">Books I can bet at: ${on} of ${n}</button><div class="chips" id="glBooks" hidden>${bookChips()}</div><h2 style="margin:16px 0 6px">Player props</h2>`;
 }
 /* best lines tab */
 const BEST={};
@@ -646,17 +672,26 @@ function renderBestView(d){
  if(!['props','game'].includes(F.bestView))F.bestView='props';
  $('bestView').innerHTML=[['props','Player props'],['game','Game lines']].map(([k,t])=>`<button data-bv="${k}" class="${F.bestView===k?'on':''}">${t}</button>`).join('');
  const game=F.bestView==='game';
- $('bestAppChips').hidden=game;$('bestFeed').hidden=game;$('bestApps').hidden=game;$('bestBooks').hidden=!game;
+ $('bestAppChips').hidden=game;$('bestFeed').hidden=game;$('bestApps').hidden=game;$('bestBooks').hidden=!game;$('bestTypes').hidden=!game;
  if(game)renderBestGame(d);else renderBest(d);
 }
 function renderBestGame(d){
- const rows=(d.gameLines||[]);noteBooks(rows);
+ const all=(d.gameLines||[]),sp=F.bestSport,c=glSel(sp);noteBooks(all);
+ // +EV at your books, before the bet-type filter, so the chips can show counts
+ const pos=r=>{const bp=bestPrice(r);return bp&&bp.ev!=null&&bp.ev>0&&bp.ev<=0.15};
+ const inP=all.filter(r=>c.periods.includes(r.period||'full')),inT=all.filter(r=>c.types.includes(r.kind));
+ const have=new Set(all.map(r=>r.period||'full'));have.add('full');
+ const chip=(grp,k,t,n)=>`<button data-gt="${grp}:${k}" class="${c[grp].includes(k)?'on':''}">${t}${n==null?'':` (${n})`}</button>`;
+ $('bestTypes').innerHTML=`<div class="mut" style="margin-top:8px;font-size:13px">Bet types:</div><div class="chips" style="margin-top:6px">${GL_TYPES.map(([k,t])=>chip('types',k,t,inP.filter(r=>r.kind===k&&pos(r)).length)).join('')}</div>`+
+  (have.size>1?`<div class="mut" style="margin-top:6px;font-size:13px">Game or part of game:</div><div class="chips" style="margin-top:6px">${GL_PERIODS.filter(([k])=>have.has(k)).map(([k,t])=>chip('periods',k,t,inT.filter(r=>(r.period||'full')===k&&pos(r)).length)).join('')}</div>`:'');
+ const rows=all.filter(r=>glPass(sp,r));
  $('bestBooks').innerHTML=`<div class="mut" style="margin-top:8px">Books I can bet at (tap to switch on or off):</div><div class="chips">${bookChips()}</div>`;
  const t=new Date(d.fetched),mins=Math.max(0,Math.round((Date.now()-t)/60000));
  // +EV = the best price at your books pays more than the fair odds imply.
  // Over 15% is almost always a stale or wrong quote, so those are skipped.
  const list=rows.map((r,i)=>[r,i,bestPrice(r)]).filter(([r,,bp])=>bp&&bp.ev!=null&&bp.ev>0&&bp.ev<=0.15).sort((a,b)=>b[2].ev-a[2].ev);
  const found=list.filter(([r])=>bestHit(r));
+ if(rows.length<all.length&&!rows.length){bestStatus('');$('best').innerHTML='<div class="mut">No lines of the types you picked in this scan. Try another bet type above.</div>';return}
  bestStatus(`${d.window}: ${list.length} game line${list.length===1?'':'s'} priced better than fair at your books, from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}.${cfbNote(d)}`);
  if(!list.length){$('best').innerHTML=`<div class="mut">${rows.length&&noBookOn()?'Tap the sportsbook(s) you use above.':rows.length?'Nothing beats the fair odds at your books right now. That’s normal: books shade toward each other. Check back as lines move.':(d.cfb&&!d.games?'No games match your filters in this window.':'No game lines in this window.')}</div>`;return}
  if(!found.length){$('best').innerHTML=bestMiss(d);return}
@@ -721,7 +756,7 @@ async function loadLineup(){
   D.sports.push(sports[i]);
   // prefix the game with the sport so per-game limits never mix up two leagues
   D.picks.push(...r.value.picks.map(p=>({...p,game:`${lab} · ${p.game}`})));
-  D.gameLines.push(...(r.value.gameLines||[]).map(g=>({...g,game:`${lab} · ${g.game}`})));
+  D.gameLines.push(...(r.value.gameLines||[]).map(g=>({...g,sport:sports[i],game:`${lab} · ${g.game}`})));
  });
  if(!D.sports.length){lnStatus(D.passcode?'Enter the passcode on the Calculator tab first.':`Couldn’t load ${D.failed.join(' + ')}: ${esc(D.why||'unknown error')}`,true);return}
  LN=D;renderLineup(D);
@@ -753,9 +788,9 @@ function renderLineup(d){
  <div class="mut" style="margin-top:8px">Tap × to swap a pick out (say you don’t trust it). The builder fills the spot with the next best pick.</div>`;
 }
 function renderParlays(d){
- const rows=d.gameLines||[];noteBooks(rows);
+ const rows=(d.gameLines||[]).filter(r=>!r.sport||glPass(r.sport,r));noteBooks(rows);
  const cands=rows.map(r=>{const bp=bestPrice(r);if(!bp||r.fair==null||r.books<3||bp.ev>0.15)return null;
-  return{...r,prob:r.fair,dec:bp.dec,price:bp.price,title:bp.title,key:'gl|'+r.game+'|'+r.kind+'|'+r.side}}).filter(Boolean);
+  return{...r,prob:r.fair,dec:bp.dec,price:bp.price,title:bp.title,key:'gl|'+r.game+'|'+(r.id||r.kind)+'|'+r.side}}).filter(Boolean);
  const res=Lineup.buildParlays(cands,{haircut:S.haircut,exclude:lnExclude});
  lnOpts=res.options;
  const hc=S.haircut>0?`<br><span style="font-size:12px">EV includes your ${S.haircut}% estimate haircut, same as the calculator. <a href="#" id="lnHc" style="color:inherit">Change it</a></span>`:'';
@@ -766,7 +801,7 @@ function renderParlays(d){
   return;
  }
  if(lnSel>=lnOpts.length)lnSel=0;
- lnStatus(`${res.pool} game line${res.pool===1?'':'s'} +EV at your books${lnFrom(d)}. <b>Singles are the steadiest way to bet an edge.</b> Parlays multiply the edge and the swings, and always show a higher EV because every leg is +EV.`+hc);
+ lnStatus(`${res.pool} game line${res.pool===1?'':'s'} +EV at your books${lnFrom(d)}, using the bet types you picked on Best Lines. <b>Singles are the steadiest way to bet an edge.</b> Parlays multiply the edge and the swings, and always show a higher EV because every leg is +EV.`+hc);
  $('lnOpts').innerHTML=lnOpts.map((o,i)=>`<button class="opt${i===lnSel?' on':''}" data-lo="${i}"><span>${esc(o.name)}<small style="display:block">hits ${(o.cash*100).toFixed(1)}% · pays ${o.table[o.size].toFixed(2)}x</small></span><span class="ev ${o.ev>0?'pos':'neg'}">${pctS(o.ev)}</span></button>`).join('');
  const o=lnOpts[lnSel];
  $('lnDetail').innerHTML=`<h2 style="margin-top:16px">${esc(o.name)} at your best books</h2>
@@ -810,6 +845,7 @@ function initLineup(){
 function initBest(){
  if(!SPORT_LIST.some(s=>s[0]===F.bestSport))F.bestSport=F.sport||'football_nfl';
  $('bestSports').onclick=e=>{const b=e.target.closest('[data-bs]');if(!b)return;F.bestSport=b.dataset.bs;saveF();loadBest()};
+ $('bestTypes').onclick=e=>{const b=e.target.closest('[data-gt]');if(!b)return;const[g,k]=b.dataset.gt.split(':');const msg=toggleGlSel(F.bestSport,g,k);const d=BEST[F.bestSport];if(d)renderBestGame(d);if(msg)bestStatus(msg)};
  $('bestQ').oninput=e=>{bestQ=e.target.value.trim();const d=BEST[F.bestSport];if(d)renderBestView(d)};
  $('bestCfb').onclick=e=>{const b=e.target.closest('[data-cf]');if(!b)return;const[g,k]=b.dataset.cf.split(':');toggleCfb(g,k)};
  $('bestAppChips').onclick=e=>{const b=e.target.closest('[data-ba]');if(!b)return;F.bestApp=b.dataset.ba;saveF();const d=BEST[F.bestSport];if(d)renderBest(d)};
@@ -842,6 +878,7 @@ function initFinder(){
  $('props').onclick=e=>{if(e.target.id==='morebtn'){SHOWN+=40;renderProps();return}const b=e.target.closest('[data-pi]');if(b)addProp(+b.dataset.pi,b.dataset.side)};
  $('glines').onclick=e=>{
   if(e.target.id==='glBooksBtn'){$('glBooks').hidden=!$('glBooks').hidden;return}
+  if(e.target.id==='glMoreBtn'){glMore=!glMore;renderGameLines();return}
   const bk=e.target.closest('[data-bk]');if(bk){toggleBook(bk.dataset.bk);renderGameLines();$('glBooks').hidden=false;return}
   const b=e.target.closest('[data-gi]');if(!b)return;const r=GL[+b.dataset.gi];if(r){setStatus(toggleGameLine(r,GL_GAME));renderGameLines()}
  };

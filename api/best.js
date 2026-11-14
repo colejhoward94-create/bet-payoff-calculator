@@ -3,7 +3,7 @@
 // One request per game, so results are cached on Vercel's CDN for an hour:
 // a whole group checking all day costs ~24 scans per sport, not one per view.
 import { SPORTS, SCAN, buildProps, pickBest, feedCounts, buildGameLines, GAME_MARKETS } from '../lib/odds.js';
-import { propline, checkPasscode, send, fail, HttpError, quota } from '../lib/upstream.js';
+import { propline, eventOdds, checkPasscode, send, fail, HttpError, quota } from '../lib/upstream.js';
 import { parseCfb, apTop25, rankMap, cfbGame, cfbLabel } from '../lib/ncaaf.js';
 
 export const config = { maxDuration: 60 };
@@ -45,9 +45,7 @@ export default async function handler(req, res) {
     for (let i = 0; i < events.length; i += 3) {
       await Promise.all(events.slice(i, i + 3).map(async e => {
         try {
-          const odds = await propline(`/sports/${sport}/events/${encodeURIComponent(e.id)}/odds`, {
-            markets: [...Object.keys(labels), ...GAME_MARKETS].join(','),
-          });
+          const odds = await eventOdds(sport, e.id, [...Object.keys(labels), ...GAME_MARKETS].join(','));
           const game = { label: labelOf.get(e.id) || `${short(e.away_team)} @ ${short(e.home_team)}`, start: e.commence_time };
           const rows = buildProps(odds, labels);
           // How many of each app's lines line up with 2+ sportsbooks at the exact line

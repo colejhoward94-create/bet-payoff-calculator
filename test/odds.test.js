@@ -149,6 +149,24 @@ test('game lines: spread uses the main point, ignores alternates; total ignores 
   assert.equal(tot[0].books, 2);
 });
 
+test('game lines: team totals and period lines come back as their own markets', () => {
+  const odds = JSON.parse(JSON.stringify(SAMPLE_ODDS));
+  odds.bookmakers.find(b => b.key === 'fanduel').markets.push(
+    { key: 'spreads', period: 'h1', outcomes: [{ name: 'Dallas Cowboys', point: 1.5, price: -110 }, { name: 'Philadelphia Eagles', point: -1.5, price: -110 }] },
+    { key: 'totals', period: 'q3', outcomes: [{ name: 'Over', point: 10.5, price: -110 }, { name: 'Under', point: 10.5, price: -110 }] },
+  );
+  const rows = buildGameLines(odds);
+  const tt = rows.filter(r => r.kind === 'tt');
+  assert.deepEqual(tt.map(r => r.label), ['Dallas Cowboys team total Over 21.5', 'Dallas Cowboys team total Under 21.5']);
+  assert.equal(tt[0].id, 'tt|Dallas Cowboys');
+  assert.equal(tt[0].team, 'Dallas Cowboys');
+  const h1 = rows.filter(r => r.period === 'h1');
+  assert.deepEqual(h1.map(r => [r.id, r.label]), [['spread_h1', '1H Dallas Cowboys +1.5'], ['spread_h1', '1H Philadelphia Eagles -1.5']]);
+  assert.ok(!rows.some(r => r.period === 'q3')); // periods we don't show are skipped
+  // full-game rows keep their ids and come first
+  assert.deepEqual([...new Set(rows.map(r => r.id))], ['ml', 'spread', 'total', 'tt|Dallas Cowboys', 'spread_h1']);
+});
+
 test('game lines: empty input', () => {
   assert.deepEqual(buildGameLines(null), []);
   assert.deepEqual(buildGameLines({ home_team: 'A', away_team: 'B', bookmakers: [] }), []);
