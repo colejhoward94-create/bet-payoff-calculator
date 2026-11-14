@@ -565,10 +565,16 @@ function syncParlay(){
  $('tiers').value=`${named.length}:${prod.toFixed(2)}`;calc();
 }
 function bookChips(){
- const no=myBooks();
- return [...BOOKS_SEEN].sort((a,b)=>a[1].localeCompare(b[1])).map(([k,t])=>`<button data-bk="${esc(k)}" class="${no.has(k)?'':'on'}">${esc(t)}</button>`).join('');
+ const no=myBooks(),anyOn=[...BOOKS_SEEN.keys()].some(k=>!no.has(k));
+ // First chip flips every book: deselect all, then tap the one(s) you use.
+ const all=BOOKS_SEEN.size>1?`<button data-bk="__all" style="border-style:dashed">${anyOn?'Deselect all':'Select all'}</button>`:'';
+ return all+[...BOOKS_SEEN].sort((a,b)=>a[1].localeCompare(b[1])).map(([k,t])=>`<button data-bk="${esc(k)}" class="${no.has(k)?'':'on'}">${esc(t)}</button>`).join('');
 }
-function toggleBook(k){const no=myBooks();no.has(k)?no.delete(k):no.add(k);F.noBooks=[...no];saveF()}
+function toggleBook(k){
+ const no=myBooks();
+ if(k==='__all'){const keys=[...BOOKS_SEEN.keys()],anyOn=keys.some(x=>!no.has(x));F.noBooks=anyOn?[...new Set([...no,...keys])]:[...no].filter(x=>!keys.includes(x));saveF();return}
+ no.has(k)?no.delete(k):no.add(k);F.noBooks=[...no];saveF()}
+const noBookOn=()=>{const no=myBooks();return BOOKS_SEEN.size>0&&[...BOOKS_SEEN.keys()].every(k=>no.has(k))};
 // show the two sides of a market summing to 100
 const glShort=r=>r.kind==='total'?r.label:r.kind==='spread'?`${r.side.split(' ').slice(-1)[0]} ${r.point>0?'+':''}${r.point}`:r.side.split(' ').slice(-1)[0];
 const glPct=(r,rs)=>{const f0=Math.round(rs[0][0].fair*100);return r===rs[0][0]?f0:100-f0};
@@ -645,14 +651,14 @@ function renderBestView(d){
 }
 function renderBestGame(d){
  const rows=(d.gameLines||[]);noteBooks(rows);
- $('bestBooks').innerHTML=`<div class="mut" style="margin-top:8px">Books I can bet at (tap to turn off):</div><div class="chips">${bookChips()}</div>`;
+ $('bestBooks').innerHTML=`<div class="mut" style="margin-top:8px">Books I can bet at (tap to switch on or off):</div><div class="chips">${bookChips()}</div>`;
  const t=new Date(d.fetched),mins=Math.max(0,Math.round((Date.now()-t)/60000));
  // +EV = the best price at your books pays more than the fair odds imply.
  // Over 15% is almost always a stale or wrong quote, so those are skipped.
  const list=rows.map((r,i)=>[r,i,bestPrice(r)]).filter(([r,,bp])=>bp&&bp.ev!=null&&bp.ev>0&&bp.ev<=0.15).sort((a,b)=>b[2].ev-a[2].ev);
  const found=list.filter(([r])=>bestHit(r));
  bestStatus(`${d.window}: ${list.length} game line${list.length===1?'':'s'} priced better than fair at your books, from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}.${cfbNote(d)}`);
- if(!list.length){$('best').innerHTML=`<div class="mut">${rows.length?'Nothing beats the fair odds at your books right now. That’s normal: books shade toward each other. Check back as lines move.':(d.cfb&&!d.games?'No games match your filters in this window.':'No game lines in this window.')}</div>`;return}
+ if(!list.length){$('best').innerHTML=`<div class="mut">${rows.length&&noBookOn()?'Tap the sportsbook(s) you use above.':rows.length?'Nothing beats the fair odds at your books right now. That’s normal: books shade toward each other. Check back as lines move.':(d.cfb&&!d.games?'No games match your filters in this window.':'No game lines in this window.')}</div>`;return}
  if(!found.length){$('best').innerHTML=bestMiss(d);return}
  $('best').innerHTML=found.slice(0,60).map(([r,i,bp])=>{
   const nm=r.kind==='ml'?r.label+' ML':r.label;
@@ -753,7 +759,7 @@ function renderParlays(d){
  const res=Lineup.buildParlays(cands,{haircut:S.haircut,exclude:lnExclude});
  lnOpts=res.options;
  const hc=S.haircut>0?`<br><span style="font-size:12px">EV includes your ${S.haircut}% estimate haircut, same as the calculator. <a href="#" id="lnHc" style="color:inherit">Change it</a></span>`:'';
- const books=`<div class="mut" style="margin-top:12px;font-size:12px">Books I can bet at (tap to turn off):</div><div class="chips">${bookChips()}</div>`;
+ const books=`<div class="mut" style="margin-top:12px;font-size:12px">Books I can bet at (tap to switch on or off):</div><div class="chips">${bookChips()}</div>`;
  if(!lnOpts.length){
   $('lnOpts').innerHTML='';$('lnDetail').innerHTML=books;
   lnStatus((rows.length?`No game line is +EV at your books right now. That’s common: game lines are the sharpest market.`:'No game lines in this window.')+hc);
