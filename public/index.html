@@ -156,6 +156,7 @@ body.typing .tabs{display:none}
     <div class="mut">DFS lines where the sportsbooks' fair odds are strongest. A line shows only if the app lets you take that side, 2+ books price the exact line, and that side is 54–75% to hit. TD and other yes/no props are left out. Tap a pick to add it to your slip.</div>
     <div class="mut" id="bestApps" style="margin-top:6px"></div>
     <div class="chips" id="bestSports"></div>
+    <div id="bestCfb" hidden></div>
     <div class="chips" id="bestView"></div>
     <div id="bestBooks" hidden></div>
     <div class="msg mut" id="bestStatus"></div>
@@ -589,6 +590,40 @@ const FOOTBALL=new Set(['football_nfl','football_ncaaf']);
 function renderBestChips(){
  $('bestApps').innerHTML=FOOTBALL.has(F.bestSport)?'<b>Football is Pick6 only.</b> The odds feed doesn’t carry PrizePicks or Underdog football, so these are DraftKings Pick6 lines. They may not match PrizePicks.':'Apps covered: PrizePicks, Underdog and Pick6. Each pick shows which app has it.';
  $('bestSports').innerHTML=SPORT_LIST.map(s=>`<button data-bs="${s[0]}" class="${F.bestSport===s[0]?'on':''}">${s[1]}</button>`).join('');
+ renderCfbChips();
+}
+/* College football game filters: which teams you care about (either team qualifies) and
+   which divisions (every team in the game must be in one). Non-D1 games are always skipped.
+   Filtering happens on the server before it picks the 20 games to scan. */
+const CFB_DEF={focus:['p5','top25'],div:['fbs','fcs']};
+function cfbF(){
+ const c=F.cfb&&typeof F.cfb==='object'?F.cfb:{};
+ const ok=(a,allow,d)=>Array.isArray(a)?a.filter(x=>allow.includes(x)):d.slice();
+ const div=ok(c.div,['fbs','fcs'],CFB_DEF.div);
+ return {focus:ok(c.focus,['p5','top25'],CFB_DEF.focus),div:div.length?div:CFB_DEF.div.slice()};
+}
+const cfbKey=()=>{const c=cfbF();return `focus=${c.focus.slice().sort()}&div=${c.div.slice().sort()}`};
+function renderCfbChips(){
+ const box=$('bestCfb'),on=F.bestSport==='football_ncaaf';box.hidden=!on;if(!on)return;
+ const c=cfbF(),chip=(grp,k,t)=>`<button data-cf="${grp}:${k}" class="${c[grp].includes(k)?'on':''}">${t}</button>`;
+ box.innerHTML=`<div class="mut" style="margin-top:10px;font-size:13px">Only games with (either team):</div><div class="chips" style="margin-top:6px">${chip('focus','p5','Power 5')}${chip('focus','top25','AP Top 25')}</div>`+
+  `<div class="mut" style="margin-top:6px;font-size:13px">Division (Division I only):</div><div class="chips" style="margin-top:6px">${chip('div','fbs','FBS')}${chip('div','fcs','FCS')}</div>`+
+  `<div class="mut" style="font-size:12px">${c.focus.length?'':'No team filter: every game in the picked divisions. '}${c.div.length===2?'FBS vs. FCS games included.':c.div[0]==='fbs'?'FBS vs. FBS only.':'FCS vs. FCS only.'}</div>`;
+}
+function toggleCfb(grp,k){
+ const c=cfbF(),a=c[grp],i=a.indexOf(k);
+ if(i>=0){if(grp==='div'&&a.length===1){bestStatus('Keep FBS or FCS on. Tap the other one first to switch.');return}a.splice(i,1)}else a.push(k);
+ F.cfb=c;saveF();delete BEST.football_ncaaf;loadBest();
+}
+// One line under the scan status saying what the college football filter did.
+function cfbNote(d){
+ const c=d.cfb;if(!c)return '';
+ let t=` Filter: ${c.matched} of ${c.inWindow} games in the window match`;
+ if(c.matched>d.games)t+=`, scanning the first ${d.games}`;
+ t+='.';
+ if(c.focus&&c.focus.includes('top25'))t+=` Rankings: ${c.pollLive?c.poll:'Nov 8 AP poll (live poll unavailable)'}.`;
+ if(!c.matched&&c.div.length===1&&c.div[0]==='fcs'&&c.focus.length)t+=' Power 5 and Top 25 teams are all FBS, so turn those off to see FCS games.';
+ return t;
 }
 async function loadBest(){
  renderBestChips();
@@ -597,7 +632,7 @@ async function loadBest(){
  $('best').innerHTML='';bestStatus('Scanning games for the best lines… this can take 10–20 seconds the first time.');
  try{
   const d=await getBest(sp);
-  if(F.bestSport===sp)renderBestView(d);
+  if(F.bestSport===sp&&d._key===bestKey(sp))renderBestView(d);
  }catch(err){bestStatus(/passcode/i.test(err.message)?'Enter the passcode on the Calculator tab first.':err.message,true)}
 }
 function renderBestView(d){
@@ -614,8 +649,8 @@ function renderBestGame(d){
  // +EV = the best price at your books pays more than the fair odds imply.
  // Over 15% is almost always a stale or wrong quote, so those are skipped.
  const list=rows.map((r,i)=>[r,i,bestPrice(r)]).filter(([r,,bp])=>bp&&bp.ev!=null&&bp.ev>0&&bp.ev<=0.15).sort((a,b)=>b[2].ev-a[2].ev);
- bestStatus(`${d.window}: ${list.length} game line${list.length===1?'':'s'} priced better than fair at your books, from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}.`);
- if(!list.length){$('best').innerHTML=`<div class="mut">${rows.length?'Nothing beats the fair odds at your books right now. That’s normal: books shade toward each other. Check back as lines move.':'No game lines in this window.'}</div>`;return}
+ bestStatus(`${d.window}: ${list.length} game line${list.length===1?'':'s'} priced better than fair at your books, from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}.${cfbNote(d)}`);
+ if(!list.length){$('best').innerHTML=`<div class="mut">${rows.length?'Nothing beats the fair odds at your books right now. That’s normal: books shade toward each other. Check back as lines move.':(d.cfb&&!d.games?'No games match your filters in this window.':'No game lines in this window.')}</div>`;return}
  $('best').innerHTML=list.slice(0,60).map(([r,i,bp])=>{
   const nm=r.kind==='ml'?r.label+' ML':r.label;
   return `<div class="prop"><div><b>${esc(nm)}</b><span class="pl">${esc(r.game)} · ${esc(fmtTime(r.start))}</span><small>Best <b>${fmtAm(bp.price)} at ${esc(bp.title)}</b> · fair ${Math.round(r.fair*100)}% from ${r.books} books</small></div><div class="pb"><button data-bg="${i}" class="${sideOn(glLeg(r,r.game),r.side)?'added':''}">EV<span class="ok">${pctS(bp.ev)}</span></button></div></div>`;
@@ -629,8 +664,8 @@ function renderBest(d){
  const shown=d.picks.map((p,i)=>[p,i]).filter(([p])=>F.bestApp==='All'||p.apps.includes(F.bestApp));
  const t=new Date(d.fetched),mins=Math.max(0,Math.round((Date.now()-t)/60000));
  const fd=d.feed||{},mt=d.matched||{},q=d.quota||{};$('bestFeed').innerHTML=(q.remaining!=null?`Odds requests left today: <b>${q.remaining}</b>${q.limit?' of '+q.limit:''} (as of this scan)<br>`:'')+'Standard lines in the feed: '+APPS.map(a=>`${a} ${fd[a]?fd[a].standard:0}`).join(' · ')+'<br>Matched to 2+ sportsbooks at the same line: '+APPS.map(a=>`${a} ${mt[a]||0}`).join(' · ');
- bestStatus(`${d.window}: ${d.picks.length} line${d.picks.length===1?'':'s'} from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}${d.failed?` (${d.failed} game${d.failed>1?'s':''} couldn’t load)`:''}.`);
- if(!shown.length){$('best').innerHTML=`<div class="mut">${!d.games?'No games in this window.':F.bestApp!=='All'?`Nothing on ${F.bestApp} clears 54% right now.`:'Nothing clears 54% right now. Lines move, so check back closer to game time.'}</div>`;return}
+ bestStatus(`${d.window}: ${d.picks.length} line${d.picks.length===1?'':'s'} from ${d.scanned} game${d.scanned===1?'':'s'}. Updated ${mins<1?'just now':mins+' min ago'}${d.failed?` (${d.failed} game${d.failed>1?'s':''} couldn’t load)`:''}.${cfbNote(d)}`);
+ if(!shown.length){$('best').innerHTML=`<div class="mut">${!d.games?(d.cfb?'No games match your filters in this window.':'No games in this window.'):F.bestApp!=='All'?`Nothing on ${F.bestApp} clears 54% right now.`:'Nothing clears 54% right now. Lines move, so check back closer to game time.'}</div>`;return}
  $('best').innerHTML=shown.slice(0,60).map(([p,i])=>{
   const yn=p.line==null,sideTxt=yn?(p.side==='over'?'Yes':'No'):(p.side==='over'?'Over':'Under');
     return `<div class="prop"><div><b>${esc(p.player)}</b><span class="pl">${esc(p.label)}${yn?'':' '+p.line}</span><small>${esc(p.game)} · ${esc(fmtTime(p.start))}<br><b>On ${esc(p.apps.join(', '))}</b> · ${p.books} books</small></div><div class="pb"><button data-bi="${i}" class="${sideOn(p,p.side)?'added':''}">${sideTxt}<span>${Math.round(p.prob*100)}%</span></button></div></div>`;
@@ -639,10 +674,14 @@ function renderBest(d){
 /* lineup builder tab */
 const BEST_PENDING={};
 async function getBest(sp){
- if(BEST[sp])return BEST[sp];
- BEST_PENDING[sp]||=api('/api/best',{sport:sp}).then(d=>{BEST[sp]=d;return d}).finally(()=>{delete BEST_PENDING[sp]});
- return BEST_PENDING[sp];
+ const key=bestKey(sp);
+ if(BEST[sp]&&BEST[sp]._key===key)return BEST[sp];
+ const q={sport:sp};if(sp==='football_ncaaf'){const cf=cfbF();q.focus=cf.focus.join(',');q.div=cf.div.join(',')}
+ // Keyed by filter too, so a scan still running for old filters can't overwrite the new one.
+ BEST_PENDING[key]||=api('/api/best',q).then(d=>{d._key=key;if(key===bestKey(sp))BEST[sp]=d;return d}).finally(()=>{delete BEST_PENDING[key]});
+ return BEST_PENDING[key];
 }
+const bestKey=sp=>sp+(sp==='football_ncaaf'?'|'+cfbKey():'');
 let lnExclude=new Set(),lnSel=0,lnOpts=[],lnAll=false;
 function lnStatus(t,bad){const s=$('lnStatus');s.className='msg '+(bad?'no':'mut');s.innerHTML=t}
 // Lineup can mix sports: F.lnSports is the set of sports whose Best Lines picks feed the pool.
@@ -755,6 +794,7 @@ function initLineup(){
 function initBest(){
  if(!SPORT_LIST.some(s=>s[0]===F.bestSport))F.bestSport=F.sport||'football_nfl';
  $('bestSports').onclick=e=>{const b=e.target.closest('[data-bs]');if(!b)return;F.bestSport=b.dataset.bs;saveF();loadBest()};
+ $('bestCfb').onclick=e=>{const b=e.target.closest('[data-cf]');if(!b)return;const[g,k]=b.dataset.cf.split(':');toggleCfb(g,k)};
  $('bestAppChips').onclick=e=>{const b=e.target.closest('[data-ba]');if(!b)return;F.bestApp=b.dataset.ba;saveF();const d=BEST[F.bestSport];if(d)renderBest(d)};
  $('bestView').onclick=e=>{const b=e.target.closest('[data-bv]');if(!b)return;F.bestView=b.dataset.bv;saveF();const d=BEST[F.bestSport];if(d)renderBestView(d)};
  $('bestBooks').onclick=e=>{const b=e.target.closest('[data-bk]');if(!b)return;toggleBook(b.dataset.bk);const d=BEST[F.bestSport];if(d)renderBestGame(d)};

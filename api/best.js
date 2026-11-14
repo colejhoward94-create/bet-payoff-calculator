@@ -4,6 +4,7 @@
 // a whole group checking all day costs ~24 scans per sport, not one per view.
 import { SPORTS, SCAN, buildProps, pickBest, feedCounts, buildGameLines, GAME_MARKETS } from '../lib/odds.js';
 import { propline, checkPasscode, send, fail, HttpError, quota } from '../lib/upstream.js';
+import { parseCfb, apTop25, rankMap, cfbGame, cfbLabel } from '../lib/ncaaf.js';
 
 export const config = { maxDuration: 60 };
 
@@ -16,10 +17,27 @@ export default async function handler(req, res) {
     const labels = SPORTS[sport].markets;
 
     const now = Date.now();
-    const events = (await propline(`/sports/${sport}/events`))
+    let events = (await propline(`/sports/${sport}/events`))
       .filter(e => { const t = Date.parse(e.commence_time); return t > now - 15 * 60e3 && t < now + hours * 3600e3; })
-      .sort((a, b) => Date.parse(a.commence_time) - Date.parse(b.commence_time))
-      .slice(0, maxGames);
+      .sort((a, b) => Date.parse(a.commence_time) - Date.parse(b.commence_time));
+
+    // College football: filter games BEFORE taking the top 20, so the scan
+    // (and the daily request budget) goes to games you actually care about.
+    let cfb = null;
+    const labelOf = new Map();
+    if (sport === 'football_ncaaf') {
+      const filter = parseCfb(req.query);
+      const ap = await apTop25();
+      const ranks = rankMap(ap.teams);
+      const all = events.length;
+      events = events.filter(e => {
+        const g = cfbGame(e, filter, ranks);
+        if (g.ok) labelOf.set(e.id, `${cfbLabel(g.away)} @ ${cfbLabel(g.home)}`);
+        return g.ok;
+      });
+      cfb = { ...filter, poll: ap.week, pollLive: ap.live, inWindow: all, matched: events.length };
+    }
+    events = events.slice(0, maxGames);
 
     const picks = [], feed = {}, matched = {}, gameLines = [];
     let scanned = 0, failed = 0;
@@ -30,7 +48,7 @@ export default async function handler(req, res) {
           const odds = await propline(`/sports/${sport}/events/${encodeURIComponent(e.id)}/odds`, {
             markets: [...Object.keys(labels), ...GAME_MARKETS].join(','),
           });
-          const game = { label: `${short(e.away_team)} @ ${short(e.home_team)}`, start: e.commence_time };
+          const game = { label: labelOf.get(e.id) || `${short(e.away_team)} @ ${short(e.home_team)}`, start: e.commence_time };
           const rows = buildProps(odds, labels);
           // How many of each app's lines line up with 2+ sportsbooks at the exact line
           for (const r of rows) if (r.line != null && r.bookLine == null && r.books >= 2)
@@ -48,7 +66,7 @@ export default async function handler(req, res) {
     picks.sort((a, b) => b.prob - a.prob || b.books - a.books);
 
     send(res, 200, {
-      sport, window: label, games: events.length, scanned, failed, feed, matched,
+      sport, window: label, games: events.length, cfb, scanned, failed, feed, matched,
       picks: picks.slice(0, 150),
       gameLines,
       fetched: new Date().toISOString(),

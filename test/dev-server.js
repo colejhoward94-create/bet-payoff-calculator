@@ -10,7 +10,23 @@ globalThis.fetch = async (url, opts) => {
   const u = new URL(url);
   if (u.hostname !== 'api.prop-line.com') return realFetch(url, opts);
   let body = u.pathname.endsWith('/events') ? SAMPLE_EVENTS.map(e => ({ ...e, commence_time: new Date(Date.now() + 3600e3 * (e.id - 100)).toISOString() })) : SAMPLE_ODDS;
-  if (process.env.RICH && u.pathname.endsWith('/events')) {
+  if (u.pathname.includes('/football_ncaaf/')) {
+    // College football slate to try the Best Lines filters: big games, a ranked G5 game,
+    // a MAC game, an FCS game, a P5-vs-FCS game and a Division II game.
+    const CFB = [['Georgia Bulldogs', 'Auburn Tigers'], ['UNLV Rebels', 'New Mexico Lobos'], ['Toledo Rockets', 'Kent State Golden Flashes'],
+      ['Montana Grizzlies', 'Montana State Bobcats'], ['Mercer Bears', 'Alabama Crimson Tide'], ['Ferris State Bulldogs', 'Grand Valley State Lakers'],
+      ['USC Trojans', 'Indiana Hoosiers'], ['Wake Forest Demon Deacons', 'SMU Mustangs']];
+    if (u.pathname.endsWith('/events')) {
+      body = CFB.map(([a, h], i) => ({ id: 201 + i, away_team: a, home_team: h, commence_time: new Date(Date.now() + 3600e3 * (i + 1)).toISOString() }));
+    } else {
+      const i = +u.pathname.split('/events/')[1].split('/')[0] - 201, [A, H] = CFB[i];
+      const bk = (key, ml) => ({ key, title: key[0].toUpperCase() + key.slice(1), markets: [
+        { key: 'h2h', outcomes: [{ name: A, price: ml[0] }, { name: H, price: ml[1] }] },
+        { key: 'spreads', line_type: 'main', outcomes: [{ name: A, point: 6.5, price: -110 }, { name: H, point: -6.5, price: -110 }] },
+        { key: 'totals', line_type: 'main', outcomes: [{ name: 'Over', point: 51.5, price: -110 }, { name: 'Under', point: 51.5, price: -110 }] }] });
+      body = { id: 201 + i, home_team: H, away_team: A, bookmakers: [bk('draftkings', [200, -250]), bk('fanduel', [235 + 10 * i, -290]), bk('pinnacle', [205, -245])] };
+    }
+  } else if (process.env.RICH && u.pathname.endsWith('/events')) {
     body = [101, 102, 103, 104].map(id => ({ id, home_team: 'Home ' + id, away_team: 'Away ' + id, commence_time: new Date(Date.now() + 3600e3 * (id - 100)).toISOString() }));
   } else if (process.env.RICH && u.pathname.includes('/odds')) {
     // 6 players per game; books lean over by a seeded amount so some clear 54%
